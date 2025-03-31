@@ -53,6 +53,17 @@ class _HomePageState extends State<HomePage> {
     });
   }
   
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    
+    // Check if we're returning to this page and reset location checking state
+    if (_locationService.isCheckingLocation) {
+      // Force a state refresh when returning to this page
+      _locationService.refreshLocationState();
+    }
+  }
+  
   // Initialize the location services
   Future<void> _initializeLocationServices() async {
     // Initialize the location service
@@ -277,6 +288,15 @@ class _HomePageState extends State<HomePage> {
   // Navigate to new post
   void _navigateToNewPost() {
     Navigator.push(context, MaterialPageRoute(builder: (_) => const NewPost()));
+  }
+
+  @override
+  void dispose() {
+    // Cancel any pending location operations
+    if (_locationService.isCheckingLocation) {
+      _locationService.cancelLocationChecks();
+    }
+    super.dispose();
   }
 
   @override

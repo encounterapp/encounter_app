@@ -25,6 +25,9 @@ class LocationService {
   // Stream controllers for location state
   final _locationStateStreamController = StreamController<LocationState>.broadcast();
   
+  // For managing timeout timers
+  Timer? _locationCheckTimeoutTimer;
+  
   // Getters
   Stream<LocationState> get locationStateStream => _locationStateStreamController.stream;
   bool get isLocationAvailable => _isLocationAvailable;
@@ -34,6 +37,14 @@ class LocationService {
   // Initialize the service
   Future<void> initialize() async {
     _setCheckingState(true);
+    
+    // Add a timeout to ensure we don't get stuck in checking state
+    _locationCheckTimeoutTimer = Timer(const Duration(seconds: 10), () {
+      if (_isCheckingLocation) {
+        debugPrint('Location checking timed out after 10 seconds');
+        _setCheckingState(false);
+      }
+    });
     
     try {
       // Check if location is available
@@ -53,6 +64,7 @@ class LocationService {
     } catch (e) {
       debugPrint('Error initializing location service: $e');
     } finally {
+      _locationCheckTimeoutTimer?.cancel(); // Cancel the timer if we finish normally
       _setCheckingState(false);
     }
   }
@@ -60,6 +72,14 @@ class LocationService {
   // Request location permission with UI feedback
   Future<bool> requestLocationPermission(BuildContext context) async {
     _setCheckingState(true);
+    
+    // Add a timeout to ensure we don't get stuck in checking state
+    _locationCheckTimeoutTimer = Timer(const Duration(seconds: 15), () {
+      if (_isCheckingLocation) {
+        debugPrint('Location permission request timed out after 15 seconds');
+        _setCheckingState(false);
+      }
+    });
     
     try {
       // Check if location services are enabled
@@ -99,6 +119,7 @@ class LocationService {
       debugPrint('Error requesting location permission: $e');
       return false;
     } finally {
+      _locationCheckTimeoutTimer?.cancel(); // Cancel the timer if we finish normally
       _setCheckingState(false);
     }
   }
@@ -139,7 +160,18 @@ class LocationService {
   
   // Refresh the location state
   Future<void> refreshLocationState() async {
+    // Cancel any existing timeout timer
+    _locationCheckTimeoutTimer?.cancel();
+    
     _setCheckingState(true);
+    
+    // Add a new timeout to ensure we don't get stuck in checking state
+    _locationCheckTimeoutTimer = Timer(const Duration(seconds: 10), () {
+      if (_isCheckingLocation) {
+        debugPrint('Location refresh timed out after 10 seconds');
+        _setCheckingState(false);
+      }
+    });
     
     try {
       // Check if location is available
@@ -159,8 +191,16 @@ class LocationService {
     } catch (e) {
       debugPrint('Error refreshing location state: $e');
     } finally {
+      _locationCheckTimeoutTimer?.cancel(); // Cancel the timer if we finish normally
       _setCheckingState(false);
     }
+  }
+  
+  // Cancel any location checking operations
+  void cancelLocationChecks() {
+    _locationCheckTimeoutTimer?.cancel();
+    _isCheckingLocation = false;
+    _emitCurrentState();
   }
   
   // Toggle location services
@@ -228,6 +268,7 @@ class LocationService {
   
   // Dispose the service
   void dispose() {
+    _locationCheckTimeoutTimer?.cancel();
     _locationStateStreamController.close();
   }
 }
