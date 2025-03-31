@@ -1,20 +1,22 @@
-import 'package:encounter_app/pages/new_post.dart';
+import 'package:flutter/material.dart';
+import 'package:encounter_app/utils/location_service_helper.dart';
+import 'package:encounter_app/utils/enhanced_location_utils.dart';
+import 'package:encounter_app/components/location_status_widget.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:encounter_app/pages/feed.dart';
 import 'package:encounter_app/pages/filter_page.dart';
 import 'package:encounter_app/pages/sign_in.dart';
 import 'package:encounter_app/pages/profile_page.dart';
-import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:encounter_app/pages/message_page.dart';
-import 'package:encounter_app/utils/location_permission_utils.dart';
-import 'package:encounter_app/utils/post_location_filter.dart';
+import 'package:encounter_app/pages/new_post.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:geolocator/geolocator.dart';
 
 class HomePage extends StatefulWidget {
   final int selectedIndex;
   final String? selectedUserId;
 
-  const HomePage({super.key, this.selectedIndex = 0, this.selectedUserId});
+  const HomePage({Key? key, this.selectedIndex = 0, this.selectedUserId}) : super(key: key);
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -24,80 +26,217 @@ class _HomePageState extends State<HomePage> {
   final supabase = Supabase.instance.client;
   late int _selectedIndex;
   late List<Widget> _screens;
-  late String? selectedUserId; // Track the selected user's profile
+  late String? selectedUserId;
+  
+  // Location state
+  final _locationService = LocationService.instance;
+  bool _locationAvailable = false;
   bool _locationPermissionChecked = false;
-  bool _locationAvailable = false; // Track if location is available
-
+  
   @override
   void initState() {
     super.initState();
     _selectedIndex = (widget.selectedIndex >= 0 && widget.selectedIndex < 3) 
         ? widget.selectedIndex 
         : 0;
-    selectedUserId = widget.selectedUserId; // Store selected user ID
+    selectedUserId = widget.selectedUserId;
 
     _screens = [
-      FeedScreen(), 
-      MessagesPage(), 
+      const FeedScreen(), 
+      const MessagesPage(), 
       ProfilePage(userId: selectedUserId ?? Supabase.instance.client.auth.currentUser!.id),
     ];
     
-    // Check location permissions after widget is fully built
+    // Initialize location services after widget is fully built
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkLocationPermission();
+      _initializeLocationServices();
     });
   }
-
-  // Check and request location permission
-  Future<void> _checkLocationPermission() async {
-    if (_locationPermissionChecked) return;
+  
+  // Initialize the location services
+  Future<void> _initializeLocationServices() async {
+    // Initialize the location service
+    await _locationService.initialize();
     
-    // Check if location is available
-    final locationAvailable = await PostLocationFilter.isLocationAvailable();
-    setState(() {
-      _locationAvailable = locationAvailable;
-    });
+    if (mounted) {
+      setState(() {
+        _locationAvailable = _locationService.isLocationAvailable;
+      });
+    }
     
-    // If no location, show a snackbar to guide the user
-    if (!locationAvailable && _selectedIndex == 0) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Location services disabled. Enable to see nearby posts.'),
-            duration: const Duration(seconds: 5),
-            action: SnackBarAction(
-              label: 'Enable',
-              onPressed: () async {
-                await _requestLocationPermission();
-              },
+    // Check if this is the first time asking for permission
+    bool shouldRequest = await EnhancedLocationUtils.shouldRequestLocationPermission();
+    
+    if (shouldRequest && mounted) {
+      // Show the permission dialog for the first time
+      _showLocationPermissionDialog();
+    } else if (!_locationAvailable && _selectedIndex == 0 && mounted) {
+      // If we're on the feed screen and location is disabled, show snackbar
+      _showLocationDisabledSnackbar();
+    } else if (_locationAvailable) {
+      // If location is available, update user location
+      await _locationService.updateUserLocation();
+    }
+    
+    if (mounted) {
+      setState(() {
+        _locationPermissionChecked = true;
+      });
+    }
+  }
+  
+  // Show dialog to request location permission
+  void _showLocationPermissionDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.location_on, color: Colors.blue[700]),
+              const SizedBox(width: 10),
+              const Text('Location Access'),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Encounter needs access to your location to:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.people, size: 20, color: Colors.blue[600]),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text('Show you nearby users to connect with'),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.post_add, size: 20, color: Colors.blue[600]),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text('Display relevant posts from people in your area'),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.event, size: 20, color: Colors.blue[600]),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text('Find local events and activities'),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 10),
+                
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.security, size: 20, color: Colors.green[700]),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Your exact location is never shared with other users without your explicit consent.',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                // Mark that we've requested permission even if denied
+                final prefs = SharedPreferences.getInstance();
+                prefs.then((value) => value.setBool('has_requested_location', true));
+              },
+              child: const Text('Not Now'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _requestLocationPermission();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Allow'),
+            ),
+          ],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         );
-      }
-    }
+      },
+    );
+  }
+  
+  // Show snackbar when location is disabled
+  void _showLocationDisabledSnackbar() {
+    if (!mounted) return;
     
-    bool shouldRequest = await LocationPermissionUtils.shouldRequestLocationPermission();
-    if (shouldRequest) {
-      await _requestLocationPermission();
-    } else if (locationAvailable) {
-      // If we already have permission, just update location
-      _updateUserLocation();
-    }
-    
-    setState(() {
-      _locationPermissionChecked = true;
-    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Location services disabled. Enable to see nearby posts.'),
+        duration: const Duration(seconds: 5),
+        action: SnackBarAction(
+          label: 'Enable',
+          onPressed: _requestLocationPermission,
+        ),
+      ),
+    );
   }
   
   // Request location permission
   Future<void> _requestLocationPermission() async {
-    final permissionGranted = await LocationPermissionUtils.requestLocationPermission(context);
+    final permissionGranted = await _locationService.requestLocationPermission(context);
+    
+    if (mounted) {
+      setState(() {
+        _locationAvailable = permissionGranted;
+      });
+    }
     
     if (permissionGranted) {
-      setState(() {
-        _locationAvailable = true;
-      });
-      await _updateUserLocation();
+      // Update location in database
+      await _locationService.updateUserLocation();
       
       // Refresh the current screen if it's the feed
       if (_selectedIndex == 0 && mounted) {
@@ -106,48 +245,26 @@ class _HomePageState extends State<HomePage> {
     }
   }
   
-  // Update user location in the database
-  Future<void> _updateUserLocation() async {
-    try {
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium
-      );
-      
-      final userId = supabase.auth.currentUser?.id;
-      if (userId != null) {
-        await supabase.from('profiles').update({
-          'latitude': position.latitude,
-          'longitude': position.longitude,
-          'last_location_update': DateTime.now().toIso8601String(),
-        }).eq('id', userId);
-      }
-    } catch (e) {
-      // Handle errors silently to not interrupt the user experience
-      debugPrint('Error updating location: $e');
-    }
-  }
-
-  void _navigateToNewPost() {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => const NewPost()));
-  }
-
+  // Navigation bar tap handler
   void _onNavBarTapped(int index) {
     if (index != _selectedIndex) {
       setState(() {
         _selectedIndex = index;
       });
       
-      // Check location if navigating to feed
-      if (index == 0 && !_locationAvailable) {
-        _checkLocationPermission();
+      // Check location if navigating to feed and location is disabled
+      if (index == 0 && !_locationAvailable && _locationPermissionChecked) {
+        _showLocationDisabledSnackbar();
       }
     }
   }
-
+  
+  // Open filter page
   void _openFilterPage() {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => FilterPage()));
+    Navigator.push(context, MaterialPageRoute(builder: (_) => const FilterPage()));
   }
-
+  
+  // Sign out
   Future<void> _signOut() async {
     await supabase.auth.signOut();
     if (mounted) {
@@ -155,6 +272,11 @@ class _HomePageState extends State<HomePage> {
         MaterialPageRoute(builder: (_) => SignInPage(onTap: () {})),
       );
     }
+  }
+  
+  // Navigate to new post
+  void _navigateToNewPost() {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => const NewPost()));
   }
 
   @override
@@ -171,32 +293,75 @@ class _HomePageState extends State<HomePage> {
                 children: [
                   const Text('Encounter', style: TextStyle(fontWeight: FontWeight.bold)),
                   // Show location indicator
-                  if (!_locationAvailable)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8.0),
-                      child: GestureDetector(
-                        onTap: _requestLocationPermission,
-                        child: const Icon(
-                          Icons.location_disabled,
-                          color: Colors.red,
-                          size: 16,
-                        ),
-                      ),
+                  const SizedBox(width: 8),
+                  StreamBuilder<LocationState>(
+                    stream: _locationService.locationStateStream,
+                    initialData: LocationState(
+                      isAvailable: _locationService.isLocationAvailable,
+                      isChecking: _locationService.isCheckingLocation,
+                      position: _locationService.lastKnownPosition,
                     ),
+                    builder: (context, snapshot) {
+                      final state = snapshot.data!;
+                      
+                      if (state.isChecking) {
+                        return const SizedBox(
+                          width: 8,
+                          height: 8,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                          ),
+                        );
+                      }
+                      
+                      return Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: state.isAvailable ? Colors.green : Colors.red,
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
               centerTitle: true,
               actions: [
-                // Location toggle button
-                if (_selectedIndex == 0)
-                  IconButton(
-                    icon: Icon(
-                      _locationAvailable ? Icons.location_on : Icons.location_off,
-                      color: _locationAvailable ? Colors.green : Colors.red,
-                    ),
-                    onPressed: _requestLocationPermission,
+                // Location status widget with small icon
+                StreamBuilder<LocationState>(
+                  stream: _locationService.locationStateStream,
+                  initialData: LocationState(
+                    isAvailable: _locationService.isLocationAvailable,
+                    isChecking: _locationService.isCheckingLocation,
+                    position: _locationService.lastKnownPosition,
                   ),
-                IconButton(onPressed: _signOut, icon: const Icon(Icons.logout)),
+                  builder: (context, snapshot) {
+                    final state = snapshot.data!;
+                    
+                    return IconButton(
+                      icon: state.isChecking
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : Icon(
+                              state.isAvailable ? Icons.location_on : Icons.location_off,
+                              color: state.isAvailable ? Colors.green : Colors.red,
+                            ),
+                      onPressed: state.isChecking ? null : _requestLocationPermission,
+                    );
+                  },
+                ),
+                IconButton(
+                  onPressed: _signOut,
+                  icon: const Icon(Icons.logout),
+                ),
               ],
             )
           : null,

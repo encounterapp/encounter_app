@@ -10,7 +10,7 @@ class FilterPage extends StatefulWidget {
 }
 
 class _FilterPageState extends State<FilterPage> {
-  double _distance = 5; // Default distance in miles
+  double _distance = 5.0; // Default distance in miles - maximum is 5.0
   RangeValues _ageRange = const RangeValues(18, 60); // Default age range
   String _selectedGender = "Everyone"; // Default gender selection
   bool _locationEnabled = false; // Track if location is enabled
@@ -40,7 +40,15 @@ class _FilterPageState extends State<FilterPage> {
     final prefs = await SharedPreferences.getInstance();
     
     setState(() {
-      _distance = prefs.getDouble('filter_distance') ?? 5;
+      // Only enable location filter on the main feed (not on user profiles)
+      _locationEnabled = prefs.getBool('location_filter_enabled') ?? true;
+      
+      // Load distance but cap it at 5 miles and ensure it's at least 0.1 miles
+      final savedDistance = prefs.getDouble('filter_distance') ?? 5.0;
+      _distance = savedDistance > 5.0 ? 5.0 : (savedDistance < 0.1 ? 0.1 : savedDistance);
+      // Round to nearest 0.1 to ensure consistency
+      _distance = (_distance * 10).round() / 10;
+      
       _ageRange = RangeValues(
         prefs.getDouble('filter_age_min') ?? 18,
         prefs.getDouble('filter_age_max') ?? 60,
@@ -101,15 +109,16 @@ class _FilterPageState extends State<FilterPage> {
             ),
             Slider(
               value: _distance,
-              min: 1,
-              max: 50,
-              divisions: 49,
+              min: 0.1, // Changed minimum to 0.1 miles
+              max: 5.0, // Maximum is 5 miles
+              divisions: 49, // 49 divisions for increments of 0.1 mile (0.1 to 5.0)
               activeColor: _locationEnabled ? Colors.orange : Colors.grey,
               inactiveColor: Colors.white,
               onChanged: _locationEnabled 
                 ? (value) {
                     setState(() {
-                      _distance = value;
+                      // Round to nearest 0.1 to avoid floating point issues
+                      _distance = (value * 10).round() / 10;
                     });
                   }
                 : null,
@@ -117,7 +126,7 @@ class _FilterPageState extends State<FilterPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text("${_distance.toStringAsFixed(0)} Miles", 
+                Text("${_distance.toStringAsFixed(1)} Miles", 
                   style: TextStyle(fontSize: 16, color: _locationEnabled ? Colors.black : Colors.grey)),
                 if (!_locationEnabled)
                   ElevatedButton.icon(

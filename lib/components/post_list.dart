@@ -102,6 +102,7 @@ class _PostListState extends State<PostList>
   List<Map<String, dynamic>> _posts = [];
   bool _locationFilterEnabled = true; // Default to enable location filtering
   double _maxDistance = 5.0; // Default to 5 miles
+  static const double MAX_ALLOWED_DISTANCE = 5.0; // New constant to enforce the limit
 
   @override
   bool get wantKeepAlive => true;
@@ -117,11 +118,23 @@ class _PostListState extends State<PostList>
   Future<void> _loadFilterPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     
-    setState(() {
-      // Only enable location filter on the main feed (not on user profiles)
-      _locationFilterEnabled = _userId.isEmpty && (prefs.getBool('location_filter_enabled') ?? true);
-      _maxDistance = prefs.getDouble('filter_distance') ?? 5.0;
-    });
+    // Only enable location filter on the main feed (not on user profiles)
+    final locationEnabled = _userId.isEmpty && (prefs.getBool('location_filter_enabled') ?? true);
+    
+    // Load distance but ensure it doesn't exceed 5 miles
+    double distance = prefs.getDouble('filter_distance') ?? 5.0;
+    if (distance > MAX_ALLOWED_DISTANCE) {
+      distance = MAX_ALLOWED_DISTANCE;
+      // Optionally save the corrected value back to preferences
+      await prefs.setDouble('filter_distance', MAX_ALLOWED_DISTANCE);
+    }
+    
+    if (mounted) {
+      setState(() {
+        _locationFilterEnabled = locationEnabled;
+        _maxDistance = distance;
+      });
+    }
   }
 
   /// Loads posts from the database and listens for real-time updates.
