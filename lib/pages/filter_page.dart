@@ -1,0 +1,206 @@
+import 'package:flutter/material.dart';
+import 'package:encounter_app/utils/location_manager.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class FilterPage extends StatefulWidget {
+  const FilterPage({super.key});
+
+  @override
+  State<FilterPage> createState() => _FilterPageState();
+}
+
+class _FilterPageState extends State<FilterPage> {
+  double _distance = 5; // Default distance in miles
+  RangeValues _ageRange = const RangeValues(18, 60); // Default age range
+  String _selectedGender = "Everyone"; // Default gender selection
+  bool _locationEnabled = false; // Track if location is enabled
+
+  final List<String> _genderOptions = ["Females", "Males", "Everyone"];
+  final LocationManager _locationManager = LocationManager();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedFilters();
+    _checkLocationStatus();
+  }
+
+  // Check if location services are available
+  Future<void> _checkLocationStatus() async {
+    final bool locationInitialized = await _locationManager.initialize();
+    if (mounted) {
+      setState(() {
+        _locationEnabled = locationInitialized;
+      });
+    }
+  }
+
+  // Load saved filter preferences
+  Future<void> _loadSavedFilters() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    setState(() {
+      _distance = prefs.getDouble('filter_distance') ?? 5;
+      _ageRange = RangeValues(
+        prefs.getDouble('filter_age_min') ?? 18,
+        prefs.getDouble('filter_age_max') ?? 60,
+      );
+      _selectedGender = prefs.getString('filter_gender') ?? "Everyone";
+    });
+  }
+
+  // Save filter preferences
+  Future<void> _saveFilters() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    await prefs.setDouble('filter_distance', _distance);
+    await prefs.setDouble('filter_age_min', _ageRange.start);
+    await prefs.setDouble('filter_age_max', _ageRange.end);
+    await prefs.setString('filter_gender', _selectedGender);
+  }
+
+  void _applyFilters() async {
+    await _saveFilters();
+    Navigator.pop(context, {
+      'distance': _distance,
+      'ageRange': _ageRange,
+      'gender': _selectedGender,
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFEFF2F6), // Light gray background
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text('Filter', style: TextStyle(color: Colors.black, fontSize: 20)),
+        centerTitle: true,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Distance Section
+            Row(
+              children: [
+                const Text("Distance", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(width: 8),
+                if (!_locationEnabled)
+                  Tooltip(
+                    message: "Enable location to use distance filtering",
+                    child: Icon(Icons.info_outline, color: Colors.orange, size: 18),
+                  ),
+              ],
+            ),
+            Slider(
+              value: _distance,
+              min: 1,
+              max: 50,
+              divisions: 49,
+              activeColor: _locationEnabled ? Colors.orange : Colors.grey,
+              inactiveColor: Colors.white,
+              onChanged: _locationEnabled 
+                ? (value) {
+                    setState(() {
+                      _distance = value;
+                    });
+                  }
+                : null,
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text("${_distance.toStringAsFixed(0)} Miles", 
+                  style: TextStyle(fontSize: 16, color: _locationEnabled ? Colors.black : Colors.grey)),
+                if (!_locationEnabled)
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.location_on, size: 16),
+                    label: const Text("Enable Location"),
+                    onPressed: () async {
+                      final initialized = await _locationManager.initialize();
+                      if (mounted) {
+                        setState(() {
+                          _locationEnabled = initialized;
+                        });
+                        
+                        if (!initialized) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("Location services are not available"))
+                          );
+                        }
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                      textStyle: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+              ],
+            ),
+            
+            const SizedBox(height: 20),
+            const Text("Age", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            RangeSlider(
+              values: _ageRange,
+              min: 18,
+              max: 100,
+              divisions: 82,
+              activeColor: Colors.orange,
+              inactiveColor: Colors.white,
+              onChanged: (values) {
+                setState(() {
+                  _ageRange = values;
+                });
+              },
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text("${_ageRange.start.toInt()} - ${_ageRange.end.toInt()}", style: const TextStyle(fontSize: 16)),
+            ),
+
+            const SizedBox(height: 20),
+            const Text("Gender", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            Center(
+              child: ToggleButtons(
+                borderRadius: BorderRadius.circular(10),
+                isSelected: _genderOptions.map((e) => e == _selectedGender).toList(),
+                selectedColor: Colors.white,
+                fillColor: Colors.orange,
+                color: Colors.black,
+                onPressed: (index) {
+                  setState(() {
+                    _selectedGender = _genderOptions[index];
+                  });
+                },
+                children: _genderOptions.map((e) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Text(e, style: const TextStyle(fontSize: 16)),
+                )).toList(),
+              ),
+            ),
+
+            const Spacer(), // Push the save button to the bottom
+            ElevatedButton(
+              onPressed: _applyFilters,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              ),
+              child: const Text("Save", style: TextStyle(fontSize: 18, color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
