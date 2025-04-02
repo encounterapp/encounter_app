@@ -15,7 +15,7 @@ class _FilterPageState extends State<FilterPage> {
   String _selectedGender = "Everyone"; // Default gender selection
   bool _locationEnabled = false; // Track if location is enabled
 
-  final List<String> _genderOptions = ["Females", "Males", "Other", "Everyone"];
+  final List<String> _genderOptions = ["Female", "Male", "Other", "Everyone"];
   final LocationManager _locationManager = LocationManager();
 
   @override

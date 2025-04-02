@@ -43,7 +43,9 @@ class LocationManager {
     // Get initial position
     try {
       _lastKnownPosition = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium
+        )
       );
       return true;
     } catch (e) {
@@ -56,7 +58,9 @@ class LocationManager {
   Future<Position?> getCurrentPosition() async {
     try {
       _lastKnownPosition = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium
+        )
       );
       return _lastKnownPosition;
     } catch (e) {

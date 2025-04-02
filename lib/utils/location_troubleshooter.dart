@@ -46,8 +46,10 @@ class LocationTroubleshooter {
     // Try to get current position
     try {
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.low,
-        timeLimit: const Duration(seconds: 5),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.low,
+          timeLimit: Duration(seconds: 5),
+        )
       );
       results['position_acquired'] = true;
       results['latitude'] = position.latitude;
@@ -297,8 +299,10 @@ class LocationTroubleshooter {
     // Try to get and update location
     try {
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 20),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 20),
+        )
       );
       
       final userId = Supabase.instance.client.auth.currentUser?.id;

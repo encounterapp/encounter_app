@@ -35,8 +35,10 @@ class PostLocationFilter {
     try {
       // Try to get current position as final check
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.low,
-        timeLimit: const Duration(seconds: 3)
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.low,
+          timeLimit: Duration(seconds: 3)
+        )
       );
       return position != null;
     } catch (e) {

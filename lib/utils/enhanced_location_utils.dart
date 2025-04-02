@@ -200,10 +200,12 @@ class EnhancedLocationUtils {
         return null;
       }
       
-      // Get the current position
+      // Get the current position with updated settings
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: accuracy,
-        timeLimit: timeout,
+        locationSettings: LocationSettings(
+          accuracy: accuracy,
+          timeLimit: timeout,
+        )
       );
       
       // Cache the position
