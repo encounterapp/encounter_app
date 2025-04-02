@@ -120,6 +120,8 @@ class PostListController {
   bool _isLoading = true;
   bool _locationFilterEnabled = true;
   double _maxDistance = 5.0;
+  String _genderFilter = "Everyone"; // Default gender filter
+  RangeValues _ageRange = const RangeValues(18, 60); // Default age range
   static const double MAX_ALLOWED_DISTANCE = 5.0;
   bool _locationServicesAvailable = true;
 
@@ -129,6 +131,8 @@ class PostListController {
   bool get locationFilterEnabled => _locationFilterEnabled;
   bool get locationServicesAvailable => _locationServicesAvailable;
   double get maxDistance => _maxDistance;
+  String get genderFilter => _genderFilter;
+  RangeValues get ageRange => _ageRange;
   bool get isUserSpecific => _userId != null;
 
   PostListController({required this.supabase, String? userId}) : _userId = userId {
@@ -154,8 +158,17 @@ class PostListController {
       await prefs.setDouble('filter_distance', MAX_ALLOWED_DISTANCE);
     }
     
+    // Load gender filter
+    final genderPref = prefs.getString('filter_gender') ?? "Everyone";
+    
+    // Load age range
+    final ageMin = prefs.getDouble('filter_age_min') ?? 18;
+    final ageMax = prefs.getDouble('filter_age_max') ?? 60;
+    
     _locationFilterEnabled = locationEnabled;
     _maxDistance = distance;
+    _genderFilter = genderPref;
+    _ageRange = RangeValues(ageMin, ageMax);
   }
 
   void _loadPosts() {
@@ -203,20 +216,23 @@ class PostListController {
         }
       }).toList();
       
-      // Apply location filtering if enabled and on the main feed
-      if (_locationFilterEnabled && _userId == null) {
-        final locationFilterResult = await PostLocationFilter.filterPostsByDistance(
+      // Apply location and gender filtering if on the main feed
+      if (_userId == null) {
+        final filterResult = await PostLocationFilter.filterPosts(
           filteredData, 
-          maxDistance: _maxDistance
+          maxDistance: _maxDistance,
+          genderFilter: _genderFilter,
+          ageRange: _ageRange,
+          locationFilterEnabled: _locationFilterEnabled
         );
         
-        _locationServicesAvailable = locationFilterResult.locationServicesAvailable;
+        _locationServicesAvailable = filterResult.locationServicesAvailable;
         
-        // If location services are unavailable, set empty list
-        if (!_locationServicesAvailable) {
+        // If location services are unavailable and location filtering is enabled, set empty list
+        if (!_locationServicesAvailable && _locationFilterEnabled) {
           filteredData = [];
         } else {
-          filteredData = locationFilterResult.posts;
+          filteredData = filterResult.posts;
         }
       }
 
@@ -253,19 +269,22 @@ class PostListController {
       final response = await query;
       List<Map<String, dynamic>> filteredPosts = response;
       
-      // Apply location filtering if enabled
-      if (_locationFilterEnabled && _userId == null) {
-        final locationFilterResult = await PostLocationFilter.filterPostsByDistance(
+      // Apply filters if not on a specific user profile
+      if (_userId == null) {
+        final filterResult = await PostLocationFilter.filterPosts(
           response, 
-          maxDistance: _maxDistance
+          maxDistance: _maxDistance,
+          genderFilter: _genderFilter,
+          ageRange: _ageRange,
+          locationFilterEnabled: _locationFilterEnabled
         );
         
-        _locationServicesAvailable = locationFilterResult.locationServicesAvailable;
+        _locationServicesAvailable = filterResult.locationServicesAvailable;
         
-        if (!_locationServicesAvailable) {
+        if (!_locationServicesAvailable && _locationFilterEnabled) {
           filteredPosts = [];
         } else {
-          filteredPosts = locationFilterResult.posts;
+          filteredPosts = filterResult.posts;
         }
       }
       

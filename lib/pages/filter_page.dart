@@ -54,6 +54,8 @@ class _FilterPageState extends State<FilterPage> {
         prefs.getDouble('filter_age_min') ?? 18,
         prefs.getDouble('filter_age_max') ?? 60,
       );
+      
+      // Load gender selection
       _selectedGender = prefs.getString('filter_gender') ?? "Everyone";
     });
   }
@@ -66,6 +68,7 @@ class _FilterPageState extends State<FilterPage> {
     await prefs.setDouble('filter_age_min', _ageRange.start);
     await prefs.setDouble('filter_age_max', _ageRange.end);
     await prefs.setString('filter_gender', _selectedGender);
+    await prefs.setBool('location_filter_enabled', _locationEnabled);
   }
 
   void _applyFilters() async {
@@ -74,6 +77,7 @@ class _FilterPageState extends State<FilterPage> {
       'distance': _distance,
       'ageRange': _ageRange,
       'gender': _selectedGender,
+      'locationEnabled': _locationEnabled,
     });
   }
 
