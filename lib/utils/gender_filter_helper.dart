@@ -1,52 +1,92 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 
-/// A utility class to handle gender filtering related functions
+/// A utility class to handle gender filtering with extensive debugging
 class GenderFilterHelper {
   static const String EVERYONE = "Everyone";
   static const String MALES = "Males";
   static const String FEMALES = "Females";
   
-  /// Filter posts based on the gender of the author
-  /// 
-  /// This method fetches the profile of each post's author and checks if their
-  /// gender matches the filter criteria. Posts from users with "None" or "Other"
-  /// gender will only be shown when the filter is set to "Everyone".
+  /// Filter posts based on the gender of the author with detailed logging
   static Future<List<Map<String, dynamic>>> filterPostsByGender(
     List<Map<String, dynamic>> posts, 
     String genderFilter,
     SupabaseClient supabase) async {
     
-    debugPrint("Filtering ${posts.length} posts with gender filter: $genderFilter");
+    debugPrint("\n==== GENDER FILTER DEBUG ====");
+    debugPrint("Active filter: '$genderFilter'");
+    debugPrint("Input posts count: ${posts.length}");
+    
+    // Always log the current user ID for reference
+    final currentUserId = supabase.auth.currentUser?.id;
+    debugPrint("Current user ID: $currentUserId");
     
     // If filter is set to "Everyone", return all posts
     if (genderFilter == EVERYONE) {
+      debugPrint("Using 'Everyone' filter - no filtering applied");
       return posts;
     }
     
     final filteredPosts = <Map<String, dynamic>>[];
     final userGenders = <String, String?>{}; // Cache for user genders
+    final List<String> includedPostIds = [];
+    final List<String> excludedPostIds = [];
+    final Map<String, String> filteringReasons = {};
     
+    // First pass - collect all user genders to reduce database calls
+    // Use fetch one by one instead of batch since 'in' operator might have issues
+    final Set<String> uniqueUserIds = posts.map((post) => post['user_id'] as String).toSet();
+    debugPrint("Unique users in posts: ${uniqueUserIds.length}");
+    
+    try {
+      // Fetch profiles individually to avoid 'in' operator issues
+      for (var userId in uniqueUserIds) {
+        try {
+          final profile = await supabase
+              .from('profiles')
+              .select('id, gender')
+              .eq('id', userId)
+              .maybeSingle();
+              
+          if (profile != null) {
+            userGenders[profile['id']] = profile['gender'];
+          }
+        } catch (e) {
+          debugPrint("Error fetching gender for user $userId: $e");
+        }
+      }
+      
+      debugPrint("Fetched ${userGenders.length}/${uniqueUserIds.length} user genders");
+    } catch (e) {
+      debugPrint("Error fetching user genders: $e");
+    }
+    
+    // Second pass - process each post with the cached gender data
     for (final post in posts) {
       final userId = post['user_id'];
+      final postId = post['id'] ?? 'unknown'; // For logging purposes
       
       // Skip if no user ID (shouldn't happen in normal operation)
-      if (userId == null) continue;
-      
-      // Check if the current user's ID matches the post author
-      final currentUserId = supabase.auth.currentUser?.id;
-      if (userId == currentUserId) {
-        // Always include the current user's posts
-        filteredPosts.add(post);
+      if (userId == null) {
+        debugPrint("Skipping post $postId: No user ID");
+        excludedPostIds.add(postId);
+        filteringReasons[postId] = "No user ID";
         continue;
       }
       
-      // Get the gender from cache or fetch from database
-      String? gender;
-      if (userGenders.containsKey(userId)) {
-        gender = userGenders[userId];
-      } else {
+      // Always include the current user's posts
+      if (userId == currentUserId) {
+        debugPrint("Including post $postId: Current user's post");
+        filteredPosts.add(post);
+        includedPostIds.add(postId);
+        continue;
+      }
+      
+      // Try to get gender from cache, if not found, fetch individually
+      String? gender = userGenders[userId];
+      if (gender == null) {
         try {
+          debugPrint("Fetching missing gender for user $userId");
           final response = await supabase
               .from('profiles')
               .select('gender')
@@ -55,42 +95,104 @@ class GenderFilterHelper {
           
           gender = response?['gender'];
           userGenders[userId] = gender; // Cache the result
-          debugPrint("Fetched gender for user $userId: ${gender ?? 'null'}");
         } catch (e) {
-          debugPrint("Error fetching user gender: $e");
-          // Skip this post on error
+          debugPrint("Error fetching gender for user $userId: $e");
+          excludedPostIds.add(postId);
+          filteringReasons[postId] = "Error fetching gender";
           continue;
         }
       }
       
-      // Skip users with no gender
-      if (gender == null) continue;
+      // Log the raw gender value for debugging
+      debugPrint("User $userId gender: '${gender ?? "null"}'");
       
-      // Apply gender filtering with case-insensitive comparison:
-      // - If filter is "Males", only show posts from users with gender that matches "male" (case-insensitive)
-      // - If filter is "Females", only show posts from users with gender that matches "female" (case-insensitive)
-      // - Users with other gender values only show up with "Everyone" filter
-      if ((genderFilter == MALES && gender.toLowerCase() == "male") ||
-          (genderFilter == FEMALES && gender.toLowerCase() == "female")) {
+      // Skip users with no gender
+      if (gender == null || gender.trim().isEmpty) {
+        debugPrint("Excluding post $postId: No gender specified");
+        excludedPostIds.add(postId);
+        filteringReasons[postId] = "No gender specified";
+        continue;
+      }
+      
+      // Normalize the gender value
+      String normalizedGender = gender.trim().toLowerCase();
+      debugPrint("Normalized gender: '$normalizedGender'");
+      
+      bool include = false;
+      
+      // Apply gender filtering
+      if (genderFilter == MALES) {
+        include = _matchMaleGender(normalizedGender);
+        debugPrint("Male filter check for '$normalizedGender': $include");
+      } else if (genderFilter == FEMALES) {
+        include = _matchFemaleGender(normalizedGender);
+        debugPrint("Female filter check for '$normalizedGender': $include");
+      }
+      
+      if (include) {
         filteredPosts.add(post);
+        includedPostIds.add(postId);
+        debugPrint("✓ Including post $postId");
+      } else {
+        excludedPostIds.add(postId);
+        filteringReasons[postId] = "Gender mismatch";
+        debugPrint("✗ Excluding post $postId");
       }
     }
     
-    debugPrint("Gender filtering: ${posts.length} posts → ${filteredPosts.length} posts");
+    // Summary of filtering
+    debugPrint("\n==== FILTERING SUMMARY ====");
+    debugPrint("Original posts: ${posts.length}");
+    debugPrint("Filtered posts: ${filteredPosts.length}");
+    debugPrint("Included posts: ${includedPostIds.length}");
+    debugPrint("Excluded posts: ${excludedPostIds.length}");
+    debugPrint("============================\n");
+    
     return filteredPosts;
   }
   
+  /// Try different approaches to match male gender
+  static bool _matchMaleGender(String gender) {
+    // Direct equality check
+    if (gender == "male") return true;
+    
+    // Common variations
+    if (gender == "m" || gender == "man" || gender == "boy") return true;
+    
+    // Contains "male" but not "female"
+    if (gender.contains("male") && !gender.contains("female")) return true;
+    
+    // Contains specific male-indicating words
+    final maleKeywords = ["man", "men", "boy", "masculine", "cis male", "trans male"];
+    if (maleKeywords.any((keyword) => gender.contains(keyword))) return true;
+    
+    return false;
+  }
+  
+  /// Try different approaches to match female gender
+  static bool _matchFemaleGender(String gender) {
+    // Direct equality check
+    if (gender == "female") return true;
+    
+    // Common variations
+    if (gender == "f" || gender == "woman" || gender == "girl") return true;
+    
+    // Contains "female"
+    if (gender.contains("female")) return true;
+    
+    // Contains specific female-indicating words
+    final femaleKeywords = ["woman", "women", "girl", "feminine", "cis female", "trans female"];
+    if (femaleKeywords.any((keyword) => gender.contains(keyword))) return true;
+    
+    return false;
+  }
+  
   /// Validates a gender filter option
-  /// 
-  /// Returns true if the gender filter is one of the valid options
   static bool isValidGenderFilter(String filter) {
     return filter == EVERYONE || filter == MALES || filter == FEMALES;
   }
   
   /// Determines if a user with the given gender should be shown with the specified filter
-  /// 
-  /// This method can be used to check if a user should be visible with the current
-  /// gender filter before attempting to load their posts.
   static bool shouldShowUserWithGender(String? userGender, String genderFilter) {
     // If filter is "Everyone", show all users
     if (genderFilter == EVERYONE) {
@@ -98,21 +200,24 @@ class GenderFilterHelper {
     }
     
     // No gender, don't show in gender-specific filters
-    if (userGender == null) {
+    if (userGender == null || userGender.trim().isEmpty) {
       return false;
     }
     
-    // For "Males" filter, only show male users (case-insensitive)
+    // Normalize the gender string
+    String normalizedGender = userGender.trim().toLowerCase();
+    
+    // For "Males" filter
     if (genderFilter == MALES) {
-      return userGender.toLowerCase() == "male";
+      return _matchMaleGender(normalizedGender);
     }
     
-    // For "Females" filter, only show female users (case-insensitive) 
+    // For "Females" filter
     if (genderFilter == FEMALES) {
-      return userGender.toLowerCase() == "female";
+      return _matchFemaleGender(normalizedGender);
     }
     
-    // Default case (should not happen with valid filters)
+    // Default case
     return false;
   }
 }
