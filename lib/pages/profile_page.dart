@@ -2,7 +2,6 @@ import 'package:encounter_app/components/post_tab_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:encounter_app/pages/edit_profile.dart';
-// Import the new file
 
 class ProfilePage extends StatefulWidget {
   final String? userId; // If viewing another user's profile
@@ -105,6 +104,16 @@ class _ProfilePageState extends State<ProfilePage> {
               padding: const EdgeInsets.only(top: 2, bottom: 5),
               child: Text(
                 'Age: ${_profile!['age']}',
+                style: const TextStyle(fontSize: 16),
+              ),
+            ),
+            
+          // Display Gender (only if it exists)
+          if (_profile!['gender'] != null && _profile!['gender'].toString().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 2, bottom: 5),
+              child: Text(
+                'Gender: ${_profile!['gender']}',
                 style: const TextStyle(fontSize: 16),
               ),
             ),

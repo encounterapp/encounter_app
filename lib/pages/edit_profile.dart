@@ -16,6 +16,7 @@ class EditProfilePage extends StatefulWidget {
 class _EditProfilePageState extends State<EditProfilePage> {
   final _usernameController = TextEditingController();
   final _bioController = TextEditingController();
+  final _customGenderController = TextEditingController();
   File? _avatarImageFile;
   File? _bannerImageFile;
   String? _avatarUrl;
@@ -23,6 +24,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final ImagePicker _picker = ImagePicker();
   bool _isUploadingAvatar = false;
   bool _isUploadingBanner = false;
+  
+  // Gender selection
+  List<String> _genderOptions = ['Male', 'Female', 'Other', 'None'];
+  String _selectedGender = 'None';
+  bool _showCustomGenderField = false;
 
   @override
   void initState() {
@@ -31,6 +37,19 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _bioController.text = widget.profile['bio'] ?? '';
     _avatarUrl = widget.profile['avatar_url'];
     _bannerUrl = widget.profile['banner_url'];
+    
+    // Initialize gender if it exists in profile
+    if (widget.profile['gender'] != null) {
+      // Check if gender matches one of our standard options
+      if (_genderOptions.contains(widget.profile['gender'])) {
+        _selectedGender = widget.profile['gender'];
+      } else {
+        // If gender doesn't match standard options, it's a custom gender
+        _selectedGender = 'Other';
+        _customGenderController.text = widget.profile['gender'];
+        _showCustomGenderField = true;
+      }
+    }
   }
 
   /// Pick and upload profile avatar
@@ -115,19 +134,34 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
-  /// Update profile (username & bio)
+  /// Update profile (username, bio, gender)
   Future<void> _updateProfile() async {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
 
-    await Supabase.instance.client.from('profiles').update({
+    // Build the update map
+    final Map<String, dynamic> updateMap = {
       'username': _usernameController.text.trim(),
       'bio': _bioController.text.trim(),
-    }).eq('id', userId);
+    };
+
+    // Add gender field only if it's not 'None'
+    if (_selectedGender != 'None') {
+      String genderValue = _selectedGender;
+      if (_selectedGender == 'Other' && _customGenderController.text.isNotEmpty) {
+        genderValue = _customGenderController.text.trim();
+      }
+      updateMap['gender'] = genderValue;
+    } else {
+      // If 'None' is selected, set gender to null to remove it from the profile
+      updateMap['gender'] = null;
+    }
+
+    await Supabase.instance.client.from('profiles').update(updateMap).eq('id', userId);
 
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile updated successfully!')));
 
-        // Navigate back to Profile Page
+    // Navigate back to Profile Page
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (context) => HomePage(selectedIndex: 2)),
@@ -146,9 +180,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Edit Profile")),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Banner Image
             GestureDetector(
@@ -174,27 +209,90 @@ class _EditProfilePageState extends State<EditProfilePage> {
             const SizedBox(height: 20),
 
             // Profile Avatar
-            GestureDetector(
-              onTap: _pickAvatarImage,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundImage: _avatarUrl != null ? NetworkImage(_avatarUrl!) : null,
-                    child: _avatarUrl == null ? const Icon(Icons.person, size: 50) : null,
-                  ),
-                  if (_isUploadingAvatar) const CircularProgressIndicator(),
-                ],
+            Center(
+              child: GestureDetector(
+                onTap: _pickAvatarImage,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircleAvatar(
+                      radius: 50,
+                      backgroundImage: _avatarUrl != null ? NetworkImage(_avatarUrl!) : null,
+                      child: _avatarUrl == null ? const Icon(Icons.person, size: 50) : null,
+                    ),
+                    if (_isUploadingAvatar) const CircularProgressIndicator(),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 10),
-            const Text("Tap profile picture to change"),
+            const Center(child: Text("Tap profile picture to change")),
 
             const SizedBox(height: 20),
-            TextField(controller: _usernameController, decoration: const InputDecoration(labelText: 'Username')),
-            TextField(controller: _bioController, decoration: const InputDecoration(labelText: 'Bio'), maxLines: 3),
-            const SizedBox(height: 20),
+            
+            // Profile Form
+            TextField(
+              controller: _usernameController, 
+              decoration: const InputDecoration(
+                labelText: 'Username',
+                border: OutlineInputBorder(),
+              )
+            ),
+            
+            const SizedBox(height: 16),
+            
+            TextField(
+              controller: _bioController, 
+              decoration: const InputDecoration(
+                labelText: 'Bio',
+                border: OutlineInputBorder(),
+              ), 
+              maxLines: 3
+            ),
+            
+            const SizedBox(height: 16),
+
+            // Gender Selection
+            const Text(
+              "Gender",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            
+            DropdownButtonFormField<String>(
+              value: _selectedGender,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              items: _genderOptions.map((gender) {
+                return DropdownMenuItem(
+                  value: gender,
+                  child: Text(gender),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedGender = value!;
+                  _showCustomGenderField = value == 'Other';
+                });
+              },
+            ),
+            
+            // Custom Gender Field (shown only when "Other" is selected)
+            if (_showCustomGenderField) ...[
+              const SizedBox(height: 16),
+              TextField(
+                controller: _customGenderController,
+                decoration: const InputDecoration(
+                  labelText: 'Specify your gender',
+                  border: OutlineInputBorder(),
+                  hintText: 'Enter your gender identity',
+                ),
+              ),
+            ],
+            
+            const SizedBox(height: 24),
 
             // Save and Cancel Buttons
             Row(
@@ -202,12 +300,21 @@ class _EditProfilePageState extends State<EditProfilePage> {
               children: [
                 ElevatedButton(
                   onPressed: _cancelEdit,
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                  child: const Text('Cancel', style: TextStyle(color: Colors.white)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                  child: const Text('Cancel', style: TextStyle(fontSize: 16)),
                 ),
                 ElevatedButton(
                   onPressed: _updateProfile,
-                  child: const Text('Save Changes'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                  child: const Text('Save Changes', style: TextStyle(fontSize: 16)),
                 ),
               ],
             ),

@@ -2,7 +2,8 @@ import 'package:encounter_app/utils/location_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:encounter_app/pages/new_chat.dart';
-import 'package:encounter_app/utils/post_location_filter.dart'; // Import the new filter
+import 'package:encounter_app/utils/post_location_filter.dart';
+import 'package:encounter_app/utils/gender_filter_helper.dart';
 import 'dart:math';
 import 'package:encounter_app/pages/home_page.dart';
 import 'dart:async';
@@ -100,8 +101,10 @@ class _PostListState extends State<PostList>
   late String _userId;
   bool _isLoading = true;
   List<Map<String, dynamic>> _posts = [];
-  bool _locationFilterEnabled = true; // Default to enable location filtering
+  bool _locationEnabled = true; // Default to enable location filtering
   double _maxDistance = 5.0; // Default to 5 miles
+  String _genderFilter = "Everyone"; // Default to "Everyone"
+  RangeValues _ageRange = const RangeValues(18, 60); // Default age range
   static const double MAX_ALLOWED_DISTANCE = 5.0; // New constant to enforce the limit
 
   @override
@@ -129,10 +132,19 @@ class _PostListState extends State<PostList>
       await prefs.setDouble('filter_distance', MAX_ALLOWED_DISTANCE);
     }
     
+    // Load gender filter
+    String genderFilter = prefs.getString('filter_gender') ?? "Everyone";
+    
+    // Load age range
+    double minAge = prefs.getDouble('filter_age_min') ?? 18;
+    double maxAge = prefs.getDouble('filter_age_max') ?? 60;
+    
     if (mounted) {
       setState(() {
-        _locationFilterEnabled = locationEnabled;
+        _locationEnabled = locationEnabled;
         _maxDistance = distance;
+        _genderFilter = genderFilter;
+        _ageRange = RangeValues(minAge, maxAge);
       });
     }
   }
@@ -177,7 +189,7 @@ class _PostListState extends State<PostList>
           }).toList();
           
           // Apply location filtering if enabled and on the main feed
-          if (_locationFilterEnabled && _userId.isEmpty) {
+          if (_locationEnabled && _userId.isEmpty) {
             final locationFilterResult = await PostLocationFilter.filterPostsByDistance(
               filteredData, 
               maxDistance: _maxDistance
@@ -189,6 +201,16 @@ class _PostListState extends State<PostList>
             } else {
               filteredData = locationFilterResult.posts;
             }
+          }
+          
+          // Apply gender filtering if on the main feed and filter is not "Everyone"
+          if (_userId.isEmpty && _genderFilter != "Everyone") {
+            filteredData = await _filterPostsByGender(filteredData, _genderFilter);
+          }
+          
+          // Apply age filtering if on the main feed
+          if (_userId.isEmpty) {
+            filteredData = _filterPostsByAge(filteredData, _ageRange);
           }
 
           setState(() {
@@ -220,6 +242,41 @@ class _PostListState extends State<PostList>
       debugPrint("Stream error: $error");
     });
   }
+  
+  /// Filter posts based on gender
+  Future<List<Map<String, dynamic>>> _filterPostsByGender(
+    List<Map<String, dynamic>> posts, 
+    String genderFilter) async {
+    
+    // Use the helper class to filter posts by gender
+    return GenderFilterHelper.filterPostsByGender(posts, genderFilter, supabase);
+  }
+  
+  /// Filter posts based on age
+  List<Map<String, dynamic>> _filterPostsByAge(
+    List<Map<String, dynamic>> posts, 
+    RangeValues ageRange) {
+    
+    // No age filter applied or viewing a specific user's posts
+    if (_userId.isNotEmpty) {
+      return posts;
+    }
+    
+    return posts.where((post) {
+      // Get the user ID from the post
+      final userId = post['user_id'];
+      
+      // If this is the current user's post, always include it
+      final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == currentUserId) {
+        return true;
+      }
+      
+      // For now, return all posts as we'll implement age filtering later
+      // TODO: Implement age filtering when profiles have age information
+      return true;
+    }).toList();
+  }
 
   @override
   void dispose() {
@@ -248,7 +305,7 @@ class _PostListState extends State<PostList>
               return Center(child: Text('Error: ${initialSnapshot.error}'));
             } else if (!initialSnapshot.hasData || initialSnapshot.data!.isEmpty) {
               if (!_isLoading) {
-                if (_locationFilterEnabled && _userId.isEmpty) {
+                if (_locationEnabled && _userId.isEmpty) {
                   // Check if it's empty due to location services being unavailable
                   return FutureBuilder<bool>(
                     future: PostLocationFilter.isLocationAvailable(),
@@ -303,7 +360,7 @@ class _PostListState extends State<PostList>
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Try moving to another location',
+                                'Try moving to another location or changing filters',
                                 style: const TextStyle(fontSize: 14, color: Colors.grey),
                                 textAlign: TextAlign.center,
                               ),
@@ -314,28 +371,32 @@ class _PostListState extends State<PostList>
                     },
                   );
                 }
-                return const Center(child: Text('No posts found.'));
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.post_add, size: 64, color: Colors.grey),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'No posts found',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      if (_userId.isEmpty && _genderFilter != "Everyone")
+                        Text(
+                          'Try changing your gender filter (currently $_genderFilter)',
+                          style: const TextStyle(fontSize: 14, color: Colors.grey),
+                          textAlign: TextAlign.center,
+                        ),
+                    ],
+                  ),
+                );
               }
               return const Center(child: CircularProgressIndicator());
             } else {
               // 4. If initial data is loaded, update _posts and build the ListView
               List<Map<String, dynamic>> initialPosts = initialSnapshot.data!;
               
-              // Filter out expired posts
-              initialPosts = initialPosts.where((post) {
-                final expiresAt = post['expires_at'];
-                if (expiresAt == null) {
-                  return true;
-                }
-                try {
-                  final expiryDate = DateTime.parse(expiresAt);
-                  return expiryDate.isAfter(DateTime.now());
-                } catch (e) {
-                  print("Invalid date format for expires_at: $e");
-                  return true;
-                }
-              }).toList();
-
               if (_posts.isEmpty) {
                 _posts = initialPosts;
               }
@@ -361,12 +422,12 @@ class _PostListState extends State<PostList>
                         height: MediaQuery.of(context).size.height / 2 - 100,
                         child: Center(
                           child: FutureBuilder<bool>(
-                            future: _locationFilterEnabled && _userId.isEmpty 
+                            future: _locationEnabled && _userId.isEmpty 
                               ? PostLocationFilter.isLocationAvailable()
                               : Future.value(true),
                             builder: (context, locationSnapshot) {
                               // Show location disabled message
-                              if (_locationFilterEnabled && _userId.isEmpty && 
+                              if (_locationEnabled && _userId.isEmpty && 
                                   locationSnapshot.hasData && locationSnapshot.data == false) {
                                 return Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
@@ -413,7 +474,7 @@ class _PostListState extends State<PostList>
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Icon(
-                                      _locationFilterEnabled && _userId.isEmpty
+                                      _locationEnabled && _userId.isEmpty
                                         ? Icons.location_off
                                         : Icons.article_outlined,
                                       size: 64,
@@ -421,14 +482,24 @@ class _PostListState extends State<PostList>
                                     ),
                                     const SizedBox(height: 16),
                                     Text(
-                                      _locationFilterEnabled && _userId.isEmpty
-                                        ? 'No posts found within $_maxDistance miles'
+                                      _userId.isEmpty 
+                                        ? (_locationEnabled
+                                            ? 'No posts found within $_maxDistance miles'
+                                            : 'No posts found with current filters')
                                         : 'No posts found',
                                       style: const TextStyle(
                                         fontSize: 18, 
                                         fontWeight: FontWeight.bold
                                       ),
                                     ),
+                                    if (_userId.isEmpty && _genderFilter != "Everyone")
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 8),
+                                        child: Text(
+                                          'Gender filter: $_genderFilter',
+                                          style: const TextStyle(fontSize: 14, color: Colors.grey),
+                                        ),
+                                      ),
                                   ],
                                 );
                               }
@@ -477,10 +548,25 @@ class _PostListState extends State<PostList>
       final response = await query;
       List<Map<String, dynamic>> filteredPosts = response;
       
-      // 3. Apply location filtering if enabled (only on main feed)
-      if (_locationFilterEnabled && _userId.isEmpty) {
+      // 3. Filter out expired posts
+      filteredPosts = filteredPosts.where((post) {
+        final expiresAt = post['expires_at'];
+        if (expiresAt == null) {
+          return true;
+        }
+        try {
+          final expiryDate = DateTime.parse(expiresAt);
+          return expiryDate.isAfter(DateTime.now());
+        } catch (e) {
+          print("Invalid date format for expires_at: $e");
+          return true;
+        }
+      }).toList();
+      
+      // 4. Apply location filtering if enabled (only on main feed)
+      if (_locationEnabled && _userId.isEmpty) {
         final locationFilterResult = await PostLocationFilter.filterPostsByDistance(
-          response, 
+          filteredPosts, 
           maxDistance: _maxDistance
         );
         
@@ -492,9 +578,19 @@ class _PostListState extends State<PostList>
         }
       }
       
+      // 5. Apply gender filtering if on the main feed and filter is not "Everyone"
+      if (_userId.isEmpty && _genderFilter != "Everyone") {
+        filteredPosts = await _filterPostsByGender(filteredPosts, _genderFilter);
+      }
+      
+      // 6. Apply age filtering if on the main feed
+      if (_userId.isEmpty) {
+        filteredPosts = _filterPostsByAge(filteredPosts, _ageRange);
+      }
+      
       return filteredPosts;
     } catch (e) {
-      // 4. Handle error appropriately
+      // 7. Handle error appropriately
       print("Error fetching initial posts: $e");
       return []; // Return an empty list to prevent the app from crashing
     }

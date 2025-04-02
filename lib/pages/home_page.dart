@@ -28,6 +28,9 @@ class _HomePageState extends State<HomePage> {
   late List<Widget> _screens;
   late String? selectedUserId;
   
+  // Filter state
+  String _genderFilter = "Everyone";
+  
   // Location state
   final _locationService = LocationService.instance;
   bool _locationAvailable = false;
@@ -47,10 +50,25 @@ class _HomePageState extends State<HomePage> {
       ProfilePage(userId: selectedUserId ?? Supabase.instance.client.auth.currentUser!.id),
     ];
     
+    // Load filter preferences
+    _loadFilterPreferences();
+    
     // Initialize location services after widget is fully built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeLocationServices();
     });
+  }
+  
+  // Load filter preferences
+  Future<void> _loadFilterPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedGenderFilter = prefs.getString('filter_gender') ?? "Everyone";
+    
+    if (mounted) {
+      setState(() {
+        _genderFilter = savedGenderFilter;
+      });
+    }
   }
   
   @override
@@ -271,8 +289,25 @@ class _HomePageState extends State<HomePage> {
   }
   
   // Open filter page
-  void _openFilterPage() {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => const FilterPage()));
+  void _openFilterPage() async {
+    final result = await Navigator.push(
+      context, 
+      MaterialPageRoute(builder: (_) => const FilterPage())
+    );
+    
+    // If the user updated filters, refresh the feed
+    if (result != null && result is Map<String, dynamic>) {
+      if (result.containsKey('gender')) {
+        setState(() {
+          _genderFilter = result['gender'];
+        });
+        
+        // If on the feed screen, refresh it to apply new filters
+        if (_selectedIndex == 0) {
+          setState(() {}); // This will trigger a rebuild
+        }
+      }
+    }
   }
   
   // Sign out
@@ -349,6 +384,27 @@ class _HomePageState extends State<HomePage> {
               ),
               centerTitle: true,
               actions: [
+                // Display current gender filter if not "Everyone"
+                if (_genderFilter != "Everyone" && _selectedIndex == 0)
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue.withOpacity(0.3))
+                      ),
+                      child: Text(
+                        _genderFilter,
+                        style: TextStyle(
+                          color: Colors.blue[700],
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold
+                        ),
+                      ),
+                    ),
+                  ),
+                const SizedBox(width: 8),
                 // Location status widget with small icon
                 StreamBuilder<LocationState>(
                   stream: _locationService.locationStateStream,
