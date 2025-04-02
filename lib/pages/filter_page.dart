@@ -15,14 +15,15 @@ class _FilterPageState extends State<FilterPage> {
   String _selectedGender = "Everyone"; // Default gender selection
   bool _locationEnabled = false; // Track if location is enabled
 
-  final List<String> _genderOptions = ["Females", "Males", "Everyone"];
+  final List<String> _genderOptions = ["Females", "Males", "Other", "Everyone"];
   final LocationManager _locationManager = LocationManager();
 
   @override
   void initState() {
     super.initState();
-    _loadSavedFilters();
-    _checkLocationStatus();
+    _loadFilterPreferences().then((_) {
+      _checkLocationStatus();
+    });
   }
 
   // Check if location services are available
@@ -35,8 +36,8 @@ class _FilterPageState extends State<FilterPage> {
     }
   }
 
-  // Load saved filter preferences
-  Future<void> _loadSavedFilters() async {
+  /// Loads filter preferences from SharedPreferences
+  Future<void> _loadFilterPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     
     setState(() {
@@ -178,23 +179,28 @@ class _FilterPageState extends State<FilterPage> {
             const SizedBox(height: 20),
             const Text("Gender", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            Center(
-              child: ToggleButtons(
-                borderRadius: BorderRadius.circular(10),
-                isSelected: _genderOptions.map((e) => e == _selectedGender).toList(),
-                selectedColor: Colors.white,
-                fillColor: Colors.orange,
-                color: Colors.black,
-                onPressed: (index) {
-                  setState(() {
-                    _selectedGender = _genderOptions[index];
-                  });
-                },
-                children: _genderOptions.map((e) => Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(e, style: const TextStyle(fontSize: 16)),
-                )).toList(),
-              ),
+            Wrap(
+              spacing: 10, // horizontal space between chips
+              runSpacing: 10, // vertical space between lines
+              alignment: WrapAlignment.start,
+              children: _genderOptions.map((gender) {
+                return ChoiceChip(
+                  label: Text(gender),
+                  selected: _selectedGender == gender,
+                  onSelected: (bool selected) {
+                    if (selected) {
+                      setState(() {
+                        _selectedGender = gender;
+                      });
+                    }
+                  },
+                  selectedColor: Colors.orange,
+                  backgroundColor: Colors.grey[300],
+                  labelStyle: TextStyle(
+                    color: _selectedGender == gender ? Colors.white : Colors.black,
+                  ),
+                );
+              }).toList(),
             ),
 
             const Spacer(), // Push the save button to the bottom
