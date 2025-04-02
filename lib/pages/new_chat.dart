@@ -76,7 +76,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final response = await supabase
           .from('chat_sessions')
           .select('status')
-          .or('and(user1_id.eq.${currentUserId},user2_id.eq.${widget.recipientId}),and(user1_id.eq.${widget.recipientId},user2_id.eq.${currentUserId})')
+          .or('and(user1_id.eq.$currentUserId,user2_id.eq.${widget.recipientId}),and(user1_id.eq.${widget.recipientId},user2_id.eq.$currentUserId)')
           .limit(1)
           .maybeSingle();
 
@@ -307,7 +307,7 @@ Future<void> _endChat() async {
         ? widget.recipientId 
         : currentUserId;
         
-    final chatId = '${smallerId}_${largerId}';
+    final chatId = '${smallerId}_$largerId';
     
     // First check if the chat session exists
     final existingChat = await supabase

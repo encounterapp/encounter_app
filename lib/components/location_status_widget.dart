@@ -8,12 +8,12 @@ class LocationStatusWidget extends StatefulWidget {
   final double iconSize;
   
   const LocationStatusWidget({
-    Key? key,
+    super.key,
     this.showLabel = true,
     this.showIcon = true,
     this.onTap,
     this.iconSize = 24.0,
-  }) : super(key: key);
+  });
 
   @override
   State<LocationStatusWidget> createState() => _LocationStatusWidgetState();
@@ -144,7 +144,7 @@ class _LocationStatusWidgetState extends State<LocationStatusWidget> {
 }
 
 class LocationStatusIndicator extends StatelessWidget {
-  const LocationStatusIndicator({Key? key}) : super(key: key);
+  const LocationStatusIndicator({super.key});
 
   @override
   Widget build(BuildContext context) {

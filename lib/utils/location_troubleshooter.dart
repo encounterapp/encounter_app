@@ -53,7 +53,7 @@ class LocationTroubleshooter {
       results['latitude'] = position.latitude;
       results['longitude'] = position.longitude;
       results['position_accuracy'] = position.accuracy;
-      results['position_timestamp'] = position.timestamp?.toIso8601String();
+      results['position_timestamp'] = position.timestamp.toIso8601String();
     } catch (e) {
       results['position_acquired'] = false;
       results['position_error'] = e.toString();
@@ -72,7 +72,6 @@ class LocationTroubleshooter {
             .single();
         
         results['profile_has_location'] = 
-            response != null && 
             response['latitude'] != null && 
             response['longitude'] != null;
             

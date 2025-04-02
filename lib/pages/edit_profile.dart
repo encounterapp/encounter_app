@@ -26,7 +26,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   bool _isUploadingBanner = false;
   
   // Gender selection
-  List<String> _genderOptions = ['Male', 'Female', 'Other', 'None'];
+  final List<String> _genderOptions = ['Male', 'Female', 'Other', 'None'];
   String _selectedGender = 'None';
   bool _showCustomGenderField = false;
 

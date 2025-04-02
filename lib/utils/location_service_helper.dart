@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:encounter_app/utils/enhanced_location_utils.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:encounter_app/utils/location_troubleshooter.dart';
 import 'dart:async';
 

@@ -5,9 +5,9 @@ class LocationPermissionDialog extends StatelessWidget {
   final Function(bool) onPermissionResult;
 
   const LocationPermissionDialog({
-    Key? key,
+    super.key,
     required this.onPermissionResult,
-  }) : super(key: key);
+  });
 
   Future<void> _handlePermissionRequest(BuildContext context) async {
     final permissionGranted = await EnhancedLocationUtils.requestLocationPermission(context);
