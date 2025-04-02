@@ -271,9 +271,24 @@ class _HomePageState extends State<HomePage> {
   }
   
   // Open filter page
-  void _openFilterPage() {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => const FilterPage()));
-  }
+void _openFilterPage() {
+  Navigator.push(
+    context, 
+    MaterialPageRoute(
+      builder: (_) => FilterPage(
+        onFiltersChanged: () {
+          // This function will be called when filters are changed
+          if (mounted) {
+            setState(() {
+              // Force refresh of the feed - remove the 'const' keyword
+              _screens[0] = FeedScreen(key: UniqueKey());
+            });
+          }
+        },
+      )
+    )
+  );
+}
   
   // Sign out
   Future<void> _signOut() async {

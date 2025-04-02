@@ -3,7 +3,12 @@ import 'package:encounter_app/utils/location_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class FilterPage extends StatefulWidget {
-  const FilterPage({super.key});
+  final VoidCallback onFiltersChanged;
+  
+  const FilterPage({
+    super.key, 
+    required this.onFiltersChanged
+  });
 
   @override
   State<FilterPage> createState() => _FilterPageState();
@@ -71,15 +76,17 @@ class _FilterPageState extends State<FilterPage> {
     await prefs.setBool('location_filter_enabled', _locationEnabled);
   }
 
-  void _applyFilters() async {
-    await _saveFilters();
-    Navigator.pop(context, {
-      'distance': _distance,
-      'ageRange': _ageRange,
-      'gender': _selectedGender,
-      'locationEnabled': _locationEnabled,
-    });
+void _applyFilters() async {
+  await _saveFilters();
+  
+  // Call the callback before navigating back
+  widget.onFiltersChanged();
+  
+  // Navigate back
+  if (mounted) {
+    Navigator.pop(context);
   }
+}
 
   @override
   Widget build(BuildContext context) {

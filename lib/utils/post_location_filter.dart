@@ -157,12 +157,6 @@ class PostLocationFilter {
       for (final post in filteredPosts) {
         final authorId = post['user_id'];
         
-        // Always include current user's own posts
-        if (authorId == currentUserId) {
-          genderFilteredPosts.add(post);
-          continue;
-        }
-        
         try {
           // Get author's profile with gender data
           final authorProfile = await _supabase
