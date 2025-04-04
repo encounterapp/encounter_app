@@ -569,8 +569,8 @@ Future<void> _endChat() async {
         children: [
           const SizedBox(height: 10),
           // Add age warning banner if needed
-          if (_ageGapWarningNeeded)
-            _buildAgeWarningBanner(),
+          //if (_ageGapWarningNeeded)
+          // _buildAgeWarningBanner(),
           _buildActionButtonsAndGuidelines(disabled: false),
           const SizedBox(height: 10),
           Expanded(child: _buildMessagesList()),
