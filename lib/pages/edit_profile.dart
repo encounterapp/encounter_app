@@ -71,68 +71,77 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   /// Upload avatar image to Supabase
-  Future<void> _uploadAvatarImage() async {
-    setState(() => _isUploadingAvatar = true);
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return;
+Future<void> _uploadAvatarImage() async {
+  setState(() => _isUploadingAvatar = true);
+  final userId = Supabase.instance.client.auth.currentUser?.id;
+  if (userId == null) return;
 
-    final fileExt = _avatarImageFile!.path.split('.').last;
-    final fileName = '$userId/avatars.$fileExt';
-    final filePath = 'avatars/$fileName';
+  // Ensure path follows the pattern: userId/filename
+  final fileExt = _avatarImageFile!.path.split('.').last;
+  final fileName = 'avatars.$fileExt';
+  final filePath = '$userId/$fileName';
 
-    try {
-      await Supabase.instance.client.storage.from('avatars').upload(
-            filePath,
-            _avatarImageFile!,
-            fileOptions: const FileOptions(upsert: true),
-          );
+  try {
+    debugPrint('Uploading avatar to path: $filePath for user: $userId');
+    
+    final bytes = await _avatarImageFile!.readAsBytes();
+    await Supabase.instance.client.storage.from('avatars').uploadBinary(
+          filePath,
+          bytes,
+          fileOptions: const FileOptions(upsert: true),
+        );
 
-      final imageUrl = Supabase.instance.client.storage.from('avatars').getPublicUrl(filePath);
+    final imageUrl = Supabase.instance.client.storage.from('avatars').getPublicUrl(filePath);
+    debugPrint('Successfully uploaded avatar, URL: $imageUrl');
 
-      setState(() {
-        _avatarUrl = imageUrl;
-        _isUploadingAvatar = false;
-      });
+    setState(() {
+      _avatarUrl = imageUrl;
+      _isUploadingAvatar = false;
+    });
 
-      // Update avatar URL in database
-      await Supabase.instance.client.from('profiles').update({'avatar_url': _avatarUrl}).eq('id', userId);
-    } catch (e) {
-      setState(() => _isUploadingAvatar = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Avatar upload failed: $e')));
-    }
+    // Update avatar URL in database
+    await Supabase.instance.client.from('profiles').update({'avatar_url': _avatarUrl}).eq('id', userId);
+  } catch (e) {
+    debugPrint('Avatar upload error: $e');
+    setState(() => _isUploadingAvatar = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Avatar upload failed: $e')));
   }
+}
 
   /// Upload banner image to Supabase
-  Future<void> _uploadBannerImage() async {
-    setState(() => _isUploadingBanner = true);
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return;
+Future<void> _uploadBannerImage() async {
+  setState(() => _isUploadingBanner = true);
+  final userId = Supabase.instance.client.auth.currentUser?.id;
+  if (userId == null) return;
 
-    final fileExt = _bannerImageFile!.path.split('.').last;
-    final fileName = '$userId/banners.$fileExt';
-    final filePath = 'banners/$fileName';
+  // Change the file path structure to match policy expectations
+  // Put the file directly in a folder named with the user's ID
+  final fileExt = _bannerImageFile!.path.split('.').last;
+  final fileName = 'banners.$fileExt';  // Just the filename
+  final filePath = '$userId/$fileName'; // User ID as the folder name
 
-    try {
-      await Supabase.instance.client.storage.from('banners').upload(
-            filePath,
-            _bannerImageFile!,
-            fileOptions: const FileOptions(upsert: true),
-          );
+  try {
+    final bytes = await _bannerImageFile!.readAsBytes();
+    await Supabase.instance.client.storage.from('banners').uploadBinary(
+          filePath,
+          bytes,
+          fileOptions: const FileOptions(upsert: true),
+        );
 
-      final imageUrl = Supabase.instance.client.storage.from('banners').getPublicUrl(filePath);
+    final imageUrl = Supabase.instance.client.storage.from('banners').getPublicUrl(filePath);
 
-      setState(() {
-        _bannerUrl = imageUrl;
-        _isUploadingBanner = false;
-      });
+    setState(() {
+      _bannerUrl = imageUrl;
+      _isUploadingBanner = false;
+    });
 
-      // Update banner URL in database
-      await Supabase.instance.client.from('profiles').update({'banner_url': _bannerUrl}).eq('id', userId);
-    } catch (e) {
-      setState(() => _isUploadingBanner = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Banner upload failed: $e')));
-    }
+    // Update banner URL in database
+    await Supabase.instance.client.from('profiles').update({'banner_url': _bannerUrl}).eq('id', userId);
+  } catch (e) {
+    setState(() => _isUploadingBanner = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Banner upload failed: $e')));
   }
+}
 
   /// Update profile (username, bio, gender)
   Future<void> _updateProfile() async {
