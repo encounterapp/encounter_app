@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 class ActionButtonsPane extends StatelessWidget {
   final VoidCallback onEndChat;
+  final VoidCallback onDecline; 
   final VoidCallback? onMeet;
   final bool disabled;
   final bool ageGapWarningNeeded;
@@ -12,6 +13,7 @@ class ActionButtonsPane extends StatelessWidget {
   const ActionButtonsPane({
     Key? key,
     required this.onEndChat,
+    required this.onDecline, 
     this.onMeet,
     required this.disabled,
     this.ageGapWarningNeeded = false,
@@ -83,7 +85,7 @@ class ActionButtonsPane extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: disabled ? null : onEndChat,
+                  onPressed: disabled ? null : onDecline, // Use onDecline here
                   icon: const Icon(Icons.close),
                   label: const Text("Decline"),
                   style: ElevatedButton.styleFrom(
@@ -93,7 +95,6 @@ class ActionButtonsPane extends StatelessWidget {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    // Apply disabled styling
                     disabledBackgroundColor: Colors.grey[300],
                     disabledForegroundColor: Colors.grey[600],
                   ),

@@ -94,64 +94,64 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
   
-  Future<void> _confirmEndChat() async {
-    // Don't show dialog if chat is already ended
-    if (_controller.isChatEnded) return;
+Future<void> _confirmEndChat() async {
+  // Don't show dialog if chat is already ended
+  if (_controller.isChatEnded) return;
 
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('End Conversation'),
-        content: const Text(
-            'Are you sure you want to end this conversation? '
-            'You will not be able to message this user again.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('CANCEL'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('END CHAT'),
-          ),
-        ],
-      ),
-    );
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('End Conversation'),
+      content: const Text(
+          'Are you sure you want to end this conversation? '
+          'You will not be able to message this user again.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('CANCEL'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          style: TextButton.styleFrom(foregroundColor: Colors.red),
+          child: const Text('END CHAT'),
+        ),
+      ],
+    ),
+  );
 
-    if (result == true) {
-      try {
-        // Show loading
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => const Center(
-            child: CircularProgressIndicator(),
-          ),
+  if (result == true) {
+    try {
+      // Show loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+      
+      await _controller.endChat(reason: 'ended');
+      
+      // Hide loading
+      if (mounted) Navigator.of(context).pop();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Chat has been ended successfully')),
         );
-        
-        await _controller.endChat();
-        
-        // Hide loading
-        if (mounted) Navigator.of(context).pop();
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Chat has been ended successfully')),
-          );
-        }
-      } catch (e) {
-        // Hide loading
-        if (mounted) Navigator.of(context).pop();
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to end chat: ${e.toString()}')),
-          );
-        }
+      }
+    } catch (e) {
+      // Hide loading
+      if (mounted) Navigator.of(context).pop();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to end chat: ${e.toString()}')),
+        );
       }
     }
   }
+}
 
   Future<void> _handleMeet() async {
     if (_controller.isChatEnded || _controller.currentUserRequestedMeeting) return;
@@ -198,6 +198,65 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     }
   }
+
+  Future<void> _confirmDeclineChat() async {
+  // Don't show dialog if chat is already ended
+  if (_controller.isChatEnded) return;
+
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Decline Conversation'),
+      content: const Text(
+          'Are you sure you want to decline this conversation? '
+          'You will not be able to message this user for 24 hours.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('CANCEL'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          style: TextButton.styleFrom(foregroundColor: Colors.red),
+          child: const Text('DECLINE'),
+        ),
+      ],
+    ),
+  );
+
+  if (result == true) {
+    try {
+      // Show loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+      
+      await _controller.endChat(reason: 'declined');
+      
+      // Hide loading
+      if (mounted) Navigator.of(context).pop();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User has been declined')),
+        );
+      }
+    } catch (e) {
+      // Hide loading
+      if (mounted) Navigator.of(context).pop();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to decline chat: ${e.toString()}')),
+        );
+      }
+    }
+  }
+}
 
   Widget _buildMeetingStatusBanner() {
     if (_controller.meetingConfirmed) {
@@ -382,6 +441,7 @@ class _ChatScreenState extends State<ChatScreen> {
             if (!_controller.isChatEnded)
               ActionButtonsPane(
                 onEndChat: _confirmEndChat,
+                onDecline: _confirmDeclineChat,
                 onMeet: _handleMeet,  
                 disabled: _controller.currentUserRequestedMeeting || _controller.meetingConfirmed,
                 ageGapWarningNeeded: _controller.ageGapWarningNeeded,

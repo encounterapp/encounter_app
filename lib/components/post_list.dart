@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'dart:math';
+import 'package:encounter_app/controllers/chat_controller.dart';
 
 /// Improved user profile cache with better error handling and typing
 class UserProfileCache {
@@ -469,7 +470,7 @@ class PostCard extends StatelessWidget {
   }
 
   /// Handles the action when the user wants to chat with the post author
-  void _handleChat(BuildContext context, String recipientId) {
+  void _handleChat(BuildContext context, String recipientId) async {
     final currentUser = supabase.auth.currentUser;
     if (currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -477,6 +478,22 @@ class PostCard extends StatelessWidget {
       );
       return;
     }
+
+    // Add this check before allowing a new chat
+  final bool canChat = await ChatController.canStartChatWith(
+    currentUser.id,
+    recipientId
+  );
+  
+  if (!canChat) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('You cannot start a chat with this user for 24 hours after declining.'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return; // Don't proceed with chat creation
+  }
 
     // Show a modal bottom sheet for the chat screen
     showModalBottomSheet(

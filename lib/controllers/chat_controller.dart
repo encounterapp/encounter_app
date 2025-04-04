@@ -469,77 +469,123 @@ class ChatController with ChangeNotifier {
     }
   }
   
-// End the chat
-  Future<void> endChat() async {
-    if (_isChatEnded || currentUserId == null) return;
+// In the ChatController class, add a new method:
+
+/// End the chat with a specific reason
+Future<void> endChat({String reason = 'ended'}) async {
+  if (_isChatEnded || currentUserId == null) return;
+  
+  _isChatEnded = true;
+  notifyListeners();
+  
+  try {
+    // Create unique key for this chat session
+    final smallerId = currentUserId!.compareTo(recipientId) < 0 
+        ? currentUserId 
+        : recipientId;
+    final largerId = currentUserId!.compareTo(recipientId) < 0 
+        ? recipientId 
+        : currentUserId;
+        
+    final chatId = '${smallerId}_$largerId';
     
-    _isChatEnded = true;
-    notifyListeners();
+    // Check if chat session exists
+    final existingChat = await supabase
+        .from('chat_sessions')
+        .select()
+        .eq('id', chatId)
+        .maybeSingle();
     
-    try {
-      // Create unique key for this chat session
-      final smallerId = currentUserId!.compareTo(recipientId) < 0 
-          ? currentUserId 
-          : recipientId;
-      final largerId = currentUserId!.compareTo(recipientId) < 0 
-          ? recipientId 
-          : currentUserId;
-          
-      final chatId = '${smallerId}_$largerId';
-      
-      // Check if chat session exists
-      final existingChat = await supabase
+    final updateData = <String, dynamic>{
+      'status': 'ended',
+      'ended_at': DateTime.now().toUtc().toIso8601String(),
+      'ended_by': currentUserId,
+      'end_reason': reason,
+      // Reset meeting state when chat is ended
+      'user1_meeting_requested': false,
+      'user2_meeting_requested': false,
+      'meeting_confirmed': false,
+    };
+    
+    // If reason is 'declined', add a declined_at timestamp
+    if (reason == 'declined') {
+      updateData['declined_at'] = DateTime.now().toUtc().toIso8601String();
+      updateData['declined_by'] = currentUserId;
+    }
+    
+    if (existingChat != null) {
+      // Update existing chat session
+      await supabase
           .from('chat_sessions')
-          .select()
-          .eq('id', chatId)
-          .maybeSingle();
-      
-      final updateData = <String, dynamic>{
-        'status': 'ended',
-        'ended_at': DateTime.now().toUtc().toIso8601String(),
-        'ended_by': currentUserId,
-        // Reset meeting state when chat is ended
-        'user1_meeting_requested': false,
-        'user2_meeting_requested': false,
-        'meeting_confirmed': false,
+          .update(updateData)
+          .eq('id', chatId);
+    } else {
+      // Create new chat session
+      final initialData = <String, dynamic>{
+        'id': chatId,
+        'user1_id': smallerId,
+        'user2_id': largerId,
+        'created_at': DateTime.now().toUtc().toIso8601String(),
       };
       
-      if (existingChat != null) {
-        // Update existing chat session
-        await supabase
-            .from('chat_sessions')
-            .update(updateData)
-            .eq('id', chatId);
-      } else {
-        // Create new chat session
-        final initialData = <String, dynamic>{
-          'id': chatId,
-          'user1_id': smallerId,
-          'user2_id': largerId,
-          'created_at': DateTime.now().toUtc().toIso8601String(),
-        };
-        
-        // Add end chat data
-        initialData.addAll(updateData);
-        
-        await supabase
-            .from('chat_sessions')
-            .insert(initialData);
-      }
+      // Add end chat data
+      initialData.addAll(updateData);
       
-      // Add system message about chat ending
-      await _sendSystemMessage('Chat has been ended.');
-      
-      // Call the callback if provided
-      if (onChatEnded != null) {
-        onChatEnded!();
-      }
-    } catch (e) {
-      debugPrint("Error ending chat: $e");
-      // Rollback state on error
-      _isChatEnded = false;
-      notifyListeners();
-      throw Exception('Failed to end chat: $e');
+      await supabase
+          .from('chat_sessions')
+          .insert(initialData);
     }
+    
+    // Add system message about chat ending with appropriate message
+    String systemMessage;
+    if (reason == 'declined') {
+      systemMessage = 'Chat has been declined. You cannot start a new chat with this user for 24 hours.';
+    } else {
+      systemMessage = 'Chat has been ended.';
+    }
+    await _sendSystemMessage(systemMessage);
+    
+    // Call the callback if provided
+    if (onChatEnded != null) {
+      onChatEnded!();
+    }
+  } catch (e) {
+    debugPrint("Error ending chat: $e");
+    // Rollback state on error
+    _isChatEnded = false;
+    notifyListeners();
+    throw Exception('Failed to end chat: $e');
   }
+}
+
+/// Check if a chat with this user is allowed (not declined within 24 hours)
+static Future<bool> canStartChatWith(String userId1, String userId2) async {
+  try {
+    // Create unique key for this chat session
+    final smallerId = userId1.compareTo(userId2) < 0 ? userId1 : userId2;
+    final largerId = userId1.compareTo(userId2) < 0 ? userId2 : userId1;
+    final chatId = '${smallerId}_$largerId';
+    
+    // Get the chat session
+    final response = await Supabase.instance.client
+        .from('chat_sessions')
+        .select('declined_at, declined_by')
+        .eq('id', chatId)
+        .maybeSingle();
+    
+    if (response == null || response['declined_at'] == null) {
+      return true; // No decline record, chat is allowed
+    }
+    
+    // Check if 24 hours have passed since the decline
+    final declinedAt = DateTime.parse(response['declined_at']);
+    final now = DateTime.now().toUtc();
+    final difference = now.difference(declinedAt);
+    
+    return difference.inHours >= 24;
+  } catch (e) {
+    debugPrint("Error checking if chat is allowed: $e");
+    return true; // Allow chat on error to prevent blocking legitimate chats
+  }
+}
 }
