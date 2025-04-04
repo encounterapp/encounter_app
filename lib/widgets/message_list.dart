@@ -109,62 +109,69 @@ class _MessagesListState extends State<MessagesList> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.chat_bubble_outline, size: 50, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          Text(
-            "No messages yet",
-            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            widget.isChatEnded 
-                ? "This chat ended without any messages" 
-                : "Start a conversation!",
-            style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-          ),
-          // Add age warning in empty state if needed
-          if (widget.ageGapWarningNeeded && !widget.isChatEnded)
-            Padding(
-              padding: const EdgeInsets.only(top: 20),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.orange),
+    return Column(
+      children: [
+        Expanded(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.chat_bubble_outline, size: 50, color: Colors.grey[400]),
+                const SizedBox(height: 16),
+                Text(
+                  "No messages yet",
+                  style: TextStyle(fontSize: 18, color: Colors.grey[600]),
                 ),
-                child: Column(
-                  children: [
-                    Text(
-                      widget.isCurrentUserMinor 
-                        ? "Remember: You are chatting with an adult" 
-                        : "Remember: You are chatting with a minor",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.orange[800],
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.isCurrentUserMinor
-                        ? "Be careful about what you share and involve a trusted adult if needed." 
-                        : "Keep conversations appropriate and respectful.",
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.orange[800],
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
+                const SizedBox(height: 8),
+                Text(
+                  widget.isChatEnded 
+                      ? "This chat ended without any messages" 
+                      : "Start a conversation!",
+                  style: TextStyle(fontSize: 14, color: Colors.grey[500]),
                 ),
+              ],
+            ),
+          ),
+        ),
+        // Add age warning at the bottom of the screen, just above the message input
+        if (widget.ageGapWarningNeeded && !widget.isChatEnded)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16, left: 16, right: 16),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    widget.isCurrentUserMinor 
+                      ? "Remember: You are chatting with an adult" 
+                      : "Remember: You are chatting with a minor",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange[800],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.isCurrentUserMinor
+                      ? "Be careful about what you share and involve a trusted adult if needed." 
+                      : "Keep conversations appropriate and respectful.",
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.orange[800],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 }

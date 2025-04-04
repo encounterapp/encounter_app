@@ -153,6 +153,13 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  void _handleMeet() {
+  // Implement your meeting functionality here
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text("Meet functionality not implemented yet")),
+  );
+}
+
   @override
   Widget build(BuildContext context) {
     // Show a loading indicator until initialization is complete
@@ -249,6 +256,7 @@ class _ChatScreenState extends State<ChatScreen> {
             if (!_controller.isChatEnded)
               ActionButtonsPane(
                 onEndChat: _confirmEndChat,
+                onMeet: _handleMeet,  
                 disabled: false,
                 ageGapWarningNeeded: _controller.ageGapWarningNeeded,
                 isCurrentUserMinor: _controller.isCurrentUserMinor,
