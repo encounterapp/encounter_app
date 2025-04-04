@@ -569,16 +569,16 @@ static Future<bool> canStartChatWith(String userId1, String userId2) async {
     // Get the chat session
     final response = await Supabase.instance.client
         .from('chat_sessions')
-        .select('declined_at, declined_by')
+        .select('ended_at, ended_by')
         .eq('id', chatId)
         .maybeSingle();
     
-    if (response == null || response['declined_at'] == null) {
+    if (response == null || response['ended_at'] == null) {
       return true; // No decline record, chat is allowed
     }
     
     // Check if 24 hours have passed since the decline
-    final declinedAt = DateTime.parse(response['declined_at']);
+    final declinedAt = DateTime.parse(response['ended_at']);
     final now = DateTime.now().toUtc();
     final difference = now.difference(declinedAt);
     
