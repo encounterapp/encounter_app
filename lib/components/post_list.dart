@@ -121,7 +121,6 @@ class PostListController {
   bool _locationFilterEnabled = true;
   double _maxDistance = 5.0;
   String _genderFilter = "Everyone"; // Default gender filter
-  RangeValues _ageRange = const RangeValues(18, 60); // Default age range
   static const double MAX_ALLOWED_DISTANCE = 5.0;
   bool _locationServicesAvailable = true;
 
@@ -132,7 +131,6 @@ class PostListController {
   bool get locationServicesAvailable => _locationServicesAvailable;
   double get maxDistance => _maxDistance;
   String get genderFilter => _genderFilter;
-  RangeValues get ageRange => _ageRange;
   bool get isUserSpecific => _userId != null;
 
   PostListController({required this.supabase, String? userId}) : _userId = userId {
@@ -161,14 +159,9 @@ class PostListController {
     // Load gender filter
     final genderPref = prefs.getString('filter_gender') ?? "Everyone";
     
-    // Load age range
-    final ageMin = prefs.getDouble('filter_age_min') ?? 18;
-    final ageMax = prefs.getDouble('filter_age_max') ?? 60;
-    
     _locationFilterEnabled = locationEnabled;
     _maxDistance = distance;
     _genderFilter = genderPref;
-    _ageRange = RangeValues(ageMin, ageMax);
   }
 
   void _loadPosts() {
@@ -222,7 +215,6 @@ class PostListController {
           filteredData, 
           maxDistance: _maxDistance,
           genderFilter: _genderFilter,
-          ageRange: _ageRange,
           locationFilterEnabled: _locationFilterEnabled
         );
         
@@ -275,7 +267,6 @@ class PostListController {
           response, 
           maxDistance: _maxDistance,
           genderFilter: _genderFilter,
-          ageRange: _ageRange,
           locationFilterEnabled: _locationFilterEnabled
         );
         

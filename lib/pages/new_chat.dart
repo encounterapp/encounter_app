@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:encounter_app/utils/age_verification_utils.dart';
 
 class ChatScreen extends StatefulWidget {
   final String recipientId;
@@ -23,6 +24,13 @@ class _ChatScreenState extends State<ChatScreen> {
   final List<Map<String, dynamic>> _messages = [];
   bool _isChatEnded = false;
   bool _isInitialized = false;
+  
+  // Age verification state
+  bool _ageVerified = false;
+  bool _ageGapWarningNeeded = false;
+  bool _isCurrentUserMinor = false;
+  bool _isRecipientMinor = false;
+  Map<String, dynamic>? _ageData;
 
   @override
   void initState() {
@@ -49,6 +57,10 @@ class _ChatScreenState extends State<ChatScreen> {
     // Fetch critical data in sequence to ensure proper initialization
     await _checkIfChatIsEnded();
     await _fetchUserProfile();
+    
+    // Check age verification status
+    await _checkAgeVerification();
+    
     _setupMessagesStream();
     _setupChatStatusListener();
     
@@ -57,6 +69,77 @@ class _ChatScreenState extends State<ChatScreen> {
       setState(() {
         _isInitialized = true;
       });
+    }
+    
+    // Show age verification warning if needed
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showAgeVerificationIfNeeded();
+    });
+  }
+  
+  // Check age verification
+  Future<void> _checkAgeVerification() async {
+    if (currentUserId == null) return;
+    
+    // Check if age verification has been acknowledged
+    final hasAcknowledged = await AgeVerificationUtils.hasAcknowledgedAgeVerification(
+      currentUserId!,
+      widget.recipientId,
+    );
+    
+    // Get age data
+    final ageData = await AgeVerificationUtils.checkAgeGap(
+      currentUserId!,
+      widget.recipientId,
+    );
+    
+    if (mounted) {
+      setState(() {
+        _ageVerified = hasAcknowledged;
+        _ageGapWarningNeeded = ageData['ageGapWarningNeeded'];
+        _ageData = ageData;
+        
+        // Determine if current user or recipient is minor
+        final currentUserData = ageData['user1']['id'] == currentUserId 
+            ? ageData['user1'] 
+            : ageData['user2'];
+        final recipientData = ageData['user1']['id'] == currentUserId 
+            ? ageData['user2'] 
+            : ageData['user1'];
+            
+        _isCurrentUserMinor = currentUserData['isMinor'];
+        _isRecipientMinor = recipientData['isMinor'];
+      });
+    }
+  }
+  
+  // Show age verification warning if needed
+  Future<void> _showAgeVerificationIfNeeded() async {
+    if (!mounted || _ageVerified || !_ageGapWarningNeeded || _ageData == null || currentUserId == null) return;
+    
+    final result = await AgeVerificationUtils.showAgeVerificationWarning(
+      context,
+      _ageData!,
+      currentUserId!,
+    );
+    
+    if (result) {
+      // Save acknowledgment
+      await AgeVerificationUtils.saveAgeVerificationAcknowledgment(
+        currentUserId!,
+        widget.recipientId,
+      );
+      
+      if (mounted) {
+        setState(() {
+          _ageVerified = true;
+        });
+      }
+    } else {
+      // User canceled, go back
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
     }
   }
 
@@ -167,7 +250,7 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       final response = await supabase
           .from('profiles')
-          .select('username, avatar_url')
+          .select('username, avatar_url, age')
           .eq('id', widget.recipientId)
           .maybeSingle();
 
@@ -485,20 +568,68 @@ Future<void> _endChat() async {
       return Column(
         children: [
           const SizedBox(height: 10),
+          // Add age warning banner if needed
+          if (_ageGapWarningNeeded)
+            _buildAgeWarningBanner(),
           _buildActionButtonsAndGuidelines(disabled: false),
           const SizedBox(height: 10),
           Expanded(child: _buildMessagesList()),
-          _buildMessageInput(), // Only included in active chat
+          _buildMessageInput() // Only included in active chat
         ],
       );
     }
+  }
+
+  Widget _buildAgeWarningBanner() {
+    Color bannerColor = Colors.orange[100]!;
+    Color textColor = Colors.orange[900]!;
+    
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      color: bannerColor,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.warning_amber, color: textColor, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _isCurrentUserMinor 
+                    ? "You are under 18 chatting with someone 18 or older." 
+                    : "This user is under 18.",
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _isCurrentUserMinor
+                    ? "Be careful about sharing personal information and consider involving a trusted adult."
+                    : "Be respectful and mindful of appropriate conversation topics.",
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildChatEndedBanner() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-      color: Colors.red,
+      color: Colors.red[100],
       child: Row(
         children: [
           Icon(Icons.warning_amber_rounded, color: Colors.red[700], size: 24),
@@ -553,7 +684,28 @@ Future<void> _endChat() async {
     );
   }
 
-Widget _buildActionButtonsAndGuidelines({required bool disabled}) {
+  // Implementation of _buildActionButtonsAndGuidelines
+  Widget _buildActionButtonsAndGuidelines({required bool disabled}) {
+    // Additional safety guidelines if age gap exists
+    final List<String> safetyGuidelines = [
+      '• Meet in public places only',
+      '• Tell a friend or family member about your plans',
+      '• No solicitation of any kind',
+      '• No harassment or inappropriate content',
+      '• Report violations immediately',
+    ];
+    
+    // Add age-specific guidelines
+    if (_ageGapWarningNeeded) {
+      if (_isCurrentUserMinor) {
+        safetyGuidelines.add('• Consider involving a trusted adult in communications');
+        safetyGuidelines.add('• Never share personal information or photos');
+      } else {
+        safetyGuidelines.add('• Communication must be appropriate for minors');
+        safetyGuidelines.add('• Inappropriate communications with minors may violate laws');
+      }
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       child: Column(
@@ -564,7 +716,7 @@ Widget _buildActionButtonsAndGuidelines({required bool disabled}) {
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () {},
+                  onPressed: disabled ? null : () {},
                   icon: const Icon(Icons.check_circle_outline),
                   label: const Text("Meet"),
                   style: ElevatedButton.styleFrom(
@@ -614,11 +766,8 @@ Widget _buildActionButtonsAndGuidelines({required bool disabled}) {
             initiallyExpanded: false,
             iconColor: Colors.orange,
             children: [
-              _guidelineText("• Meet in public places only"),
-              _guidelineText("• Tell a friend or family member about your plans"),
-              _guidelineText("• No solicitation of any kind"),
-              _guidelineText("• No harassment or inappropriate content"),
-              _guidelineText("• Report violations immediately"),
+              // Display all safety guidelines including age-specific ones
+              ...safetyGuidelines.map((guideline) => _guidelineText(guideline)),
             ],
           ),
         ],
@@ -627,16 +776,25 @@ Widget _buildActionButtonsAndGuidelines({required bool disabled}) {
   }
 
   Widget _guidelineText(String text) {
+    // Highlight age-related guidelines with a different color
+    final bool isAgeGuideline = text.contains('minor') || 
+                               text.contains('adult') || 
+                               text.contains('trusted');
+    
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         text,
-        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+        style: TextStyle(
+          fontSize: 14, 
+          color: isAgeGuideline ? Colors.orange[800] : Colors.grey[600],
+          fontWeight: isAgeGuideline ? FontWeight.bold : FontWeight.normal,
+        ),
       ),
     );
   }
 
-
+  // Implementation of _buildMessagesList
   Widget _buildMessagesList() {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _messagesStream,
@@ -664,12 +822,75 @@ Widget _buildActionButtonsAndGuidelines({required bool disabled}) {
                       : "Start a conversation!",
                   style: TextStyle(fontSize: 14, color: Colors.grey[500]),
                 ),
+                // Add age warning in empty state if needed
+                if (_ageGapWarningNeeded && !_isChatEnded)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 20),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange[50],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.orange),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            _isCurrentUserMinor 
+                              ? "Remember: You are chatting with an adult" 
+                              : "Remember: You are chatting with a minor",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.orange[800],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _isCurrentUserMinor
+                              ? "Be careful about what you share and involve a trusted adult if needed." 
+                              : "Keep conversations appropriate and respectful.",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.orange[800],
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
           );
         }
 
         final displayMessages = List<Map<String, dynamic>>.from(_messages);
+        
+        // Insert age verification message at the beginning if needed
+        if (_ageGapWarningNeeded && displayMessages.isNotEmpty) {
+          // Check if we already have an age verification message
+          bool hasAgeMessage = displayMessages.any((msg) => 
+            msg['is_system_message'] == true && 
+            (msg['content'].toString().contains('under 18') || 
+             msg['content'].toString().contains('minor'))
+          );
+          
+          if (!hasAgeMessage) {
+            final String ageMessage = _isCurrentUserMinor 
+              ? "Age Verification Notice: You are under 18 chatting with someone 18 or older. Please be careful about sharing personal information."
+              : "Age Verification Notice: This user is under 18. Please ensure all communication is appropriate and respectful.";
+              
+            // Add the system message to the beginning
+            displayMessages.insert(0, {
+              'id': 'age_verification',
+              'sender_id': 'system',
+              'receiver_id': 'system',
+              'content': ageMessage,
+              'created_at': DateTime.now().toUtc().toIso8601String(),
+              'is_system_message': true,
+            });
+          }
+        }
 
         return ListView.builder(
           controller: _scrollController,
@@ -692,48 +913,95 @@ Widget _buildActionButtonsAndGuidelines({required bool disabled}) {
   }
 
   Widget _buildSystemMessage(String text) {
+    // Add special styling for age verification system messages
+    final bool isAgeMessage = text.contains('under 18') || 
+                             text.contains('minor') || 
+                             text.contains('age verification');
+                             
     return Center(
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 10),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.grey[200],
+          color: isAgeMessage ? Colors.orange[100] : Colors.grey[200],
           borderRadius: BorderRadius.circular(16),
+          border: isAgeMessage ? Border.all(color: Colors.orange) : null,
         ),
-        child: Text(
-          text,
-          style: TextStyle(color: Colors.grey[800], fontSize: 14, fontStyle: FontStyle.italic),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isAgeMessage)
+              Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Icon(Icons.warning_amber, size: 16, color: Colors.orange[800]),
+              ),
+            Flexible(
+              child: Text(
+                text,
+                style: TextStyle(
+                  color: isAgeMessage ? Colors.orange[800] : Colors.grey[800], 
+                  fontSize: 14, 
+                  fontStyle: FontStyle.italic,
+                  fontWeight: isAgeMessage ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildChatBubble(String text, bool isMine) {
+    // Check if this message might contain age-related content to highlight
+    final bool containsAgeWarning = text.toLowerCase().contains('under 18') ||
+                                  text.toLowerCase().contains('minor') ||
+                                  text.toLowerCase().contains('adult');
+                                  
+    // Determine bubble color based on whether it's the user's message and if it contains warnings
+    Color bubbleColor;
+    if (isMine) {
+      bubbleColor = containsAgeWarning ? Colors.orange : Colors.blue;
+    } else {
+      bubbleColor = containsAgeWarning ? Colors.orange[100]! : Colors.grey[300]!;
+    }
+    
+    // Text color based on bubble color
+    Color textColor = isMine ? Colors.white : Colors.black;
+    
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isMine ? Colors.blue : Colors.grey[300],
+          color: bubbleColor,
           borderRadius: BorderRadius.only(
             topLeft: Radius.circular(isMine ? 12 : 0),
             topRight: Radius.circular(isMine ? 0 : 12),
             bottomLeft: const Radius.circular(12),
             bottomRight: const Radius.circular(12),
           ),
+          // Add border for age-related messages
+          border: containsAgeWarning 
+              ? Border.all(color: Colors.orange[700]!, width: 1.0) 
+              : null,
         ),
         child: Text(
           text,
-          style: TextStyle(fontSize: 16, color: isMine ? Colors.white : Colors.black),
+          style: TextStyle(
+            fontSize: 16, 
+            color: textColor,
+            // Make age-related text bold
+            fontWeight: containsAgeWarning ? FontWeight.bold : FontWeight.normal,
+          ),
         ),
       ),
     );
   }
 
+  // Implementation of _buildMessageInput
   Widget _buildMessageInput() {
-    // This entire widget is only included in the active chat layout
-    // due to our conditional rendering in _buildChatBody
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Row(

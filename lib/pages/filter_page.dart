@@ -16,7 +16,6 @@ class FilterPage extends StatefulWidget {
 
 class _FilterPageState extends State<FilterPage> {
   double _distance = 5.0; // Default distance in miles - maximum is 5.0
-  RangeValues _ageRange = const RangeValues(18, 60); // Default age range
   String _selectedGender = "Everyone"; // Default gender selection
   bool _locationEnabled = false; // Track if location is enabled
 
@@ -55,11 +54,6 @@ class _FilterPageState extends State<FilterPage> {
       // Round to nearest 0.1 to ensure consistency
       _distance = (_distance * 10).round() / 10;
       
-      _ageRange = RangeValues(
-        prefs.getDouble('filter_age_min') ?? 18,
-        prefs.getDouble('filter_age_max') ?? 60,
-      );
-      
       // Load gender selection
       _selectedGender = prefs.getString('filter_gender') ?? "Everyone";
     });
@@ -70,23 +64,25 @@ class _FilterPageState extends State<FilterPage> {
     final prefs = await SharedPreferences.getInstance();
     
     await prefs.setDouble('filter_distance', _distance);
-    await prefs.setDouble('filter_age_min', _ageRange.start);
-    await prefs.setDouble('filter_age_max', _ageRange.end);
     await prefs.setString('filter_gender', _selectedGender);
     await prefs.setBool('location_filter_enabled', _locationEnabled);
+    
+    // Clean up any old age range values that might exist
+    await prefs.remove('filter_age_min');
+    await prefs.remove('filter_age_max');
   }
 
-void _applyFilters() async {
-  await _saveFilters();
-  
-  // Call the callback before navigating back
-  widget.onFiltersChanged();
-  
-  // Navigate back
-  if (mounted) {
-    Navigator.pop(context);
+  void _applyFilters() async {
+    await _saveFilters();
+    
+    // Call the callback before navigating back
+    widget.onFiltersChanged();
+    
+    // Navigate back
+    if (mounted) {
+      Navigator.pop(context);
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -168,24 +164,8 @@ void _applyFilters() async {
             ),
             
             const SizedBox(height: 20),
-            const Text("Age", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            RangeSlider(
-              values: _ageRange,
-              min: 18,
-              max: 100,
-              divisions: 82,
-              activeColor: Colors.orange,
-              inactiveColor: Colors.white,
-              onChanged: (values) {
-                setState(() {
-                  _ageRange = values;
-                });
-              },
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text("${_ageRange.start.toInt()} - ${_ageRange.end.toInt()}", style: const TextStyle(fontSize: 16)),
-            ),
+            
+            // Age range filter removed
 
             const SizedBox(height: 20),
             const Text("Gender", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),

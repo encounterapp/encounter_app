@@ -14,7 +14,7 @@ class FilterResult {
   });
 }
 
-/// A utility class to filter posts based on location, gender, and age
+/// A utility class to filter posts based on location and gender
 class PostLocationFilter {
   static final LocationManager _locationManager = LocationManager();
   static final SupabaseClient _supabase = Supabase.instance.client;
@@ -48,12 +48,11 @@ class PostLocationFilter {
     }
   }
   
-  /// Filters posts by distance, gender, and age
+  /// Filters posts by distance and gender
   static Future<FilterResult> filterPosts(
     List<Map<String, dynamic>> posts, {
     double maxDistance = _DEFAULT_MAX_DISTANCE,
     String genderFilter = "Everyone",
-    required RangeValues ageRange,
     bool locationFilterEnabled = true,
   }) async {
     List<Map<String, dynamic>> filteredPosts = List.from(posts);
@@ -183,46 +182,7 @@ class PostLocationFilter {
       filteredPosts = genderFilteredPosts;
     }
     
-    // Apply age filter (could be implemented similarly to gender filter)
-    if (ageRange.start > 18 || ageRange.end < 60) {
-      final ageFilteredPosts = <Map<String, dynamic>>[];
-      final currentUserId = _supabase.auth.currentUser?.id;
-      
-      for (final post in filteredPosts) {
-        final authorId = post['user_id'];
-        
-        // Always include current user's own posts
-        if (authorId == currentUserId) {
-          ageFilteredPosts.add(post);
-          continue;
-        }
-        
-        try {
-          // Get author's profile with age data
-          final authorProfile = await _supabase
-              .from('profiles')
-              .select('age')
-              .eq('id', authorId)
-              .maybeSingle();
-          
-          // If the author doesn't have an age specified, skip the post
-          if (authorProfile == null || authorProfile['age'] == null) {
-            continue;
-          }
-          
-          // Include the post if the age is within the specified range
-          final int age = authorProfile['age'];
-          if (age >= ageRange.start && age <= ageRange.end) {
-            ageFilteredPosts.add(post);
-          }
-        } catch (e) {
-          debugPrint('Error filtering post by age: $e');
-          // Skip this post on error
-        }
-      }
-      
-      filteredPosts = ageFilteredPosts;
-    }
+    // Age filter has been removed
     
     return FilterResult(
       posts: filteredPosts,
