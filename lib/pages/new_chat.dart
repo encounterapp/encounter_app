@@ -30,22 +30,26 @@ class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
   
   @override
-  void initState() {
-    super.initState();
-    _controller = ChatController(
-      recipientId: widget.recipientId,
-      supabase: Supabase.instance.client,
-      onChatEnded: widget.onChatEnded,
-    );
-    
-    // Listen for controller changes
-    _controller.addListener(_controllerUpdated);
-    
-    // Show age verification if needed
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _showAgeVerificationIfNeeded();
+void initState() {
+  super.initState();
+  _controller = ChatController(
+    recipientId: widget.recipientId,
+    supabase: Supabase.instance.client,
+    onChatEnded: widget.onChatEnded,
+  );
+  
+  // Listen for controller changes
+  _controller.addListener(_controllerUpdated);
+  
+  // Wait a bit longer before checking age verification
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    Future.delayed(Duration(milliseconds: 500), () {
+      if (mounted) {
+        _showAgeVerificationIfNeeded();
+      }
     });
-  }
+  });
+}
   
   void _controllerUpdated() {
     if (mounted) setState(() {});
@@ -73,6 +77,11 @@ class _ChatScreenState extends State<ChatScreen> {
   }
   
   Future<void> _showAgeVerificationIfNeeded() async {
+      print("Age verification check: verified=${_controller.ageVerified}, "
+       "warningNeeded=${_controller.ageGapWarningNeeded}, "
+       "ageData=${_controller.ageData != null}, "
+       "initialized=${_controller.isInitialized}");
+    // Don't show dialog if already verified or if not needed
     if (!mounted || _controller.ageVerified || 
         !_controller.ageGapWarningNeeded || 
         _controller.ageData == null || 

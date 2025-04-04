@@ -60,26 +60,27 @@ class ChatController with ChangeNotifier {
   }
   
   // Initialize the controller
-  Future<void> _init() async {
-    final currentUser = supabase.auth.currentUser;
-    if (currentUser == null) return;
-    
-    currentUserId = currentUser.id;
-    
-    // Load data sequentially
-    await _checkIfChatIsEnded();
-    await _fetchUserProfile();
-    await _checkAgeVerification();
-    await _checkMeetingStatus();
-    
-    _setupMessagesStream();
-    _setupChatStatusListener();
-    _setupMeetingStatusListener();
-    
-    _isInitialized = true;
-    notifyListeners();
-  }
+Future<void> _init() async {
+  final currentUser = supabase.auth.currentUser;
+  if (currentUser == null) return;
   
+  currentUserId = currentUser.id;
+  
+  // Check age verification first to prioritize it
+  await _checkAgeVerification();
+  
+  // Then load other data
+  await _checkIfChatIsEnded();
+  await _fetchUserProfile();
+  await _checkMeetingStatus();
+  
+  _setupMessagesStream();
+  _setupChatStatusListener();
+  _setupMeetingStatusListener();
+  
+  _isInitialized = true;
+  notifyListeners();
+}
   // Check age verification status
   Future<void> _checkAgeVerification() async {
     if (currentUserId == null) return;
