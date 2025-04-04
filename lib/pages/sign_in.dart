@@ -16,34 +16,86 @@ class SignInPage extends StatefulWidget {
 }
 
 class _SignInPageState extends State<SignInPage> {
-// Get Auth Service
+  // Get Auth Service
   final authService = SupabaseAuthService();
-// Text editing controllers
+  // Text editing controllers
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  bool _isLoading = false;
 
-//Sign User In Method
-  void SignUserIn() {
-    final email = emailController.text;
-    final password = passwordController.text;
+  //Sign User In Method
+  void signUserIn() async {
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
+    
+    // Validate inputs
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter both email and password'),
+        ),
+      );
+      return;
+    }
+    
+    // Show loading indicator
+    setState(() {
+      _isLoading = true;
+    });
     
     //attempt to sign in user
     try {
-      authService.signInWithEmailPassword(email: email, password: password);
-      widget.onTap!();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Invalid email or password'),
-        ),
+      final response = await authService.signInWithEmailPassword(
+        email: email, 
+        password: password
       );
-    }
-    // Navigate to Home Page
-    Navigator.push(context,
-      MaterialPageRoute(
-        builder: (context) => HomePage(selectedIndex: 0,),
+      
+      // Hide loading indicator
+      setState(() {
+        _isLoading = false;
+      });
+      
+      // Check if sign in was successful
+      if (response.user != null) {
+        // Call onTap callback if it exists
+        if (widget.onTap != null) {
+          widget.onTap!();
+        }
+        
+        // Navigate to Home Page
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const HomePage(selectedIndex: 0),
             ),
           );
+        }
+      } else {
+        // Show error message if sign in failed but no exception was thrown
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Invalid email or password'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Hide loading indicator
+      setState(() {
+        _isLoading = false;
+      });
+      
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sign in failed: ${e.toString()}'),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -58,7 +110,7 @@ class _SignInPageState extends State<SignInPage> {
         children: [
 
           // Logo
-          Icon(
+          const Icon(
             Icons.account_circle,
             size: 100,
             color: Colors.black,
@@ -125,7 +177,9 @@ class _SignInPageState extends State<SignInPage> {
           const SizedBox(height: 10),
 
           // Sign In Button
-          MyButtons(onTap: SignUserIn,),
+          _isLoading
+              ? const CircularProgressIndicator()
+              : MyButtons(onTap: signUserIn),
           const SizedBox(height: 20),
 
           // or Continue with
@@ -183,7 +237,7 @@ class _SignInPageState extends State<SignInPage> {
                 onTap: () {
                   Navigator.push(context,
                     MaterialPageRoute(
-                      builder: (context) => LoginOrRegisterPage(),
+                      builder: (context) => const LoginOrRegisterPage(),
                           ),
                         );
                       },
