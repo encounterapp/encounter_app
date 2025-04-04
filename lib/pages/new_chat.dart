@@ -153,12 +153,131 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  void _handleMeet() {
-  // Implement your meeting functionality here
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text("Meet functionality not implemented yet")),
-  );
-}
+  Future<void> _handleMeet() async {
+    if (_controller.isChatEnded || _controller.currentUserRequestedMeeting) return;
+    
+    try {
+      // Show loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+      
+      await _controller.requestMeeting();
+      
+      // Hide loading
+      if (mounted) Navigator.of(context).pop();
+      
+      // If meeting is now confirmed, show a success message
+      if (_controller.meetingConfirmed && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Meeting confirmed! You both have accepted to meet.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else if (mounted) {
+        // Otherwise, show that the request was sent
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Meeting request sent to ${_controller.recipientUsername ?? "the other user"}.'),
+          ),
+        );
+      }
+    } catch (e) {
+      // Hide loading
+      if (mounted) Navigator.of(context).pop();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to request meeting: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
+  Widget _buildMeetingStatusBanner() {
+    if (_controller.meetingConfirmed) {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+        margin: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.green[100],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.green),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green[700]),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                "You both have accepted to meet.",
+                style: TextStyle(
+                  color: Colors.green,
+                  fontWeight: FontWeight.bold,
+                ), // Fixed missing colon
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (_controller.currentUserRequestedMeeting) {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+        margin: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.blue[100],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.blue),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline, color: Colors.blue[700]),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                "You have accepted to meet. Waiting for ${_controller.recipientUsername ?? 'other user'} to accept.",
+                style: TextStyle(
+                  color: Colors.blue[700],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (_controller.recipientRequestedMeeting) {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+        margin: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.orange[100],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.orange),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.notifications_active, color: Colors.orange[700]),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                "${_controller.recipientUsername ?? 'Other user'} has accepted to meet. Click 'Meet' to confirm.",
+                style: TextStyle(
+                  color: Colors.orange[700],
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    return const SizedBox.shrink();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -193,9 +312,13 @@ class _ChatScreenState extends State<ChatScreen> {
           children: [
             CircleAvatar(
               radius: 20,
+              backgroundColor: Colors.grey[300],
               backgroundImage: _controller.recipientProfilePic != null
                   ? NetworkImage(_controller.recipientProfilePic!)
-                  : const AssetImage('assets/icons/flutter_logo.png') as ImageProvider,
+                  : null,
+              child: _controller.recipientProfilePic == null
+                  ? Icon(Icons.person, size: 24, color: Colors.grey[600])
+                  : null,
             ),
             const SizedBox(width: 10),
             Column(
@@ -221,7 +344,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       style: TextStyle(
                         color: _controller.isChatEnded ? Colors.red : Colors.green, 
                         fontSize: 12
-                      )
+                      ), // Fixed missing colon
                     ),
                   ],
                 ),
@@ -244,22 +367,27 @@ class _ChatScreenState extends State<ChatScreen> {
         child: Column(
           children: [
             if (_controller.isChatEnded) 
-              const ChatEndedBanner( message: "This conversation has been ended and you can no longer send messages.",),
+              const ChatEndedBanner(
+                message: "This conversation has been ended and you can no longer send messages.",
+              ),
+            
+            // Meeting status banner - shows when there's a pending/confirmed meeting
+            if (!_controller.isChatEnded && 
+                (_controller.currentUserRequestedMeeting || 
+                 _controller.recipientRequestedMeeting || 
+                 _controller.meetingConfirmed))
+              _buildMeetingStatusBanner(),
               
-            /*if (!_controller.isChatEnded && _controller.ageGapWarningNeeded)
-              AgeWarningBanner(
-                message: _controller.isCurrentUserMinor 
-                  ? "You are under 18 chatting with someone 18 or older. Be careful about sharing personal information and consider involving a trusted adult."
-                  : "This user is under 18. Be respectful and mindful of appropriate conversation topics.",
-              ),*/
-              
+            // Action buttons pane (Meet/Decline)
             if (!_controller.isChatEnded)
               ActionButtonsPane(
                 onEndChat: _confirmEndChat,
                 onMeet: _handleMeet,  
-                disabled: false,
+                disabled: _controller.currentUserRequestedMeeting || _controller.meetingConfirmed,
                 ageGapWarningNeeded: _controller.ageGapWarningNeeded,
                 isCurrentUserMinor: _controller.isCurrentUserMinor,
+                meetingRequested: _controller.currentUserRequestedMeeting,
+                meetingConfirmed: _controller.meetingConfirmed,
               ),
               
             Expanded(

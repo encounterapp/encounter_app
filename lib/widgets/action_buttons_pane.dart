@@ -6,6 +6,8 @@ class ActionButtonsPane extends StatelessWidget {
   final bool disabled;
   final bool ageGapWarningNeeded;
   final bool isCurrentUserMinor;
+  final bool meetingRequested;
+  final bool meetingConfirmed;
   
   const ActionButtonsPane({
     Key? key,
@@ -14,6 +16,8 @@ class ActionButtonsPane extends StatelessWidget {
     required this.disabled,
     this.ageGapWarningNeeded = false,
     this.isCurrentUserMinor = false,
+    this.meetingRequested = false,
+    this.meetingConfirmed = false,
   }) : super(key: key);
 
   @override
@@ -49,18 +53,30 @@ class ActionButtonsPane extends StatelessWidget {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: disabled ? null : onMeet,
-                  icon: const Icon(Icons.check_circle_outline),
-                  label: const Text("Meet"),
+                  icon: Icon(meetingRequested || meetingConfirmed 
+                    ? Icons.check_circle 
+                    : Icons.check_circle_outline),
+                  label: Text(
+                    meetingConfirmed 
+                      ? "Meeting Confirmed" 
+                      : (meetingRequested ? "Requested" : "Meet")
+                  ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
+                    backgroundColor: meetingConfirmed 
+                      ? Colors.green.shade700 
+                      : (meetingRequested ? Colors.green.shade400 : Colors.green),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),
                     // Apply disabled styling
-                    disabledBackgroundColor: Colors.grey[300],
-                    disabledForegroundColor: Colors.grey[600],
+                    disabledBackgroundColor: meetingConfirmed 
+                      ? Colors.green.shade300 
+                      : (meetingRequested ? Colors.green.shade200 : Colors.grey[300]),
+                    disabledForegroundColor: meetingConfirmed || meetingRequested 
+                      ? Colors.white.withOpacity(0.8) 
+                      : Colors.grey[600],
                   ),
                 ),
               ),
