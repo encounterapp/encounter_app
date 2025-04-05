@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:encounter_app/components/meeting_map_view.dart';
 import 'package:encounter_app/widgets/chat_bubble.dart';
 import 'package:encounter_app/widgets/system_message.dart';
 import 'package:encounter_app/widgets/message_input.dart';
@@ -28,31 +29,37 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   late ChatController _controller;
   final ScrollController _scrollController = ScrollController();
+  bool _showMap = false;
   
   @override
-void initState() {
-  super.initState();
-  _controller = ChatController(
-    recipientId: widget.recipientId,
-    supabase: Supabase.instance.client,
-    onChatEnded: widget.onChatEnded,
-  );
-  
-  // Listen for controller changes
-  _controller.addListener(_controllerUpdated);
-  
-  // Wait a bit longer before checking age verification
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    Future.delayed(Duration(milliseconds: 500), () {
-      if (mounted) {
-        _showAgeVerificationIfNeeded();
-      }
+  void initState() {
+    super.initState();
+    _controller = ChatController(
+      recipientId: widget.recipientId,
+      supabase: Supabase.instance.client,
+      onChatEnded: widget.onChatEnded,
+    );
+    
+    // Listen for controller changes
+    _controller.addListener(_controllerUpdated);
+    
+    // Wait a bit longer before checking age verification
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(Duration(milliseconds: 500), () {
+        if (mounted) {
+          _showAgeVerificationIfNeeded();
+        }
+      });
     });
-  });
-}
+  }
   
   void _controllerUpdated() {
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {
+        // Show map when meeting is confirmed
+        _showMap = _controller.meetingConfirmed;
+      });
+    }
     
     // Scroll to bottom when messages update
     if (_controller.messages.isNotEmpty) {
@@ -77,10 +84,6 @@ void initState() {
   }
   
   Future<void> _showAgeVerificationIfNeeded() async {
-      print("Age verification check: verified=${_controller.ageVerified}, "
-       "warningNeeded=${_controller.ageGapWarningNeeded}, "
-       "ageData=${_controller.ageData != null}, "
-       "initialized=${_controller.isInitialized}");
     // Don't show dialog if already verified or if not needed
     if (!mounted || _controller.ageVerified || 
         !_controller.ageGapWarningNeeded || 
@@ -103,64 +106,64 @@ void initState() {
     }
   }
   
-Future<void> _confirmEndChat() async {
-  // Don't show dialog if chat is already ended
-  if (_controller.isChatEnded) return;
+  Future<void> _confirmEndChat() async {
+    // Don't show dialog if chat is already ended
+    if (_controller.isChatEnded) return;
 
-  final result = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('End Conversation'),
-      content: const Text(
-          'Are you sure you want to end this conversation? '
-          'You will not be able to message this user again.'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('CANCEL'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          style: TextButton.styleFrom(foregroundColor: Colors.red),
-          child: const Text('END CHAT'),
-        ),
-      ],
-    ),
-  );
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('End Conversation'),
+        content: const Text(
+            'Are you sure you want to end this conversation? '
+            'You will not be able to message this user again.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('CANCEL'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('END CHAT'),
+          ),
+        ],
+      ),
+    );
 
-  if (result == true) {
-    try {
-      // Show loading
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-      
-      await _controller.endChat(reason: 'ended');
-      
-      // Hide loading
-      if (mounted) Navigator.of(context).pop();
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Chat has been ended successfully')),
+    if (result == true) {
+      try {
+        // Show loading
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(),
+          ),
         );
-      }
-    } catch (e) {
-      // Hide loading
-      if (mounted) Navigator.of(context).pop();
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to end chat: ${e.toString()}')),
-        );
+        
+        await _controller.endChat(reason: 'ended');
+        
+        // Hide loading
+        if (mounted) Navigator.of(context).pop();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Chat has been ended successfully')),
+          );
+        }
+      } catch (e) {
+        // Hide loading
+        if (mounted) Navigator.of(context).pop();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to end chat: ${e.toString()}')),
+          );
+        }
       }
     }
   }
-}
 
   Future<void> _handleMeet() async {
     if (_controller.isChatEnded || _controller.currentUserRequestedMeeting) return;
@@ -188,6 +191,11 @@ Future<void> _confirmEndChat() async {
             backgroundColor: Colors.green,
           ),
         );
+        
+        // Show the map
+        setState(() {
+          _showMap = true;
+        });
       } else if (mounted) {
         // Otherwise, show that the request was sent
         ScaffoldMessenger.of(context).showSnackBar(
@@ -209,63 +217,63 @@ Future<void> _confirmEndChat() async {
   }
 
   Future<void> _confirmDeclineChat() async {
-  // Don't show dialog if chat is already ended
-  if (_controller.isChatEnded) return;
+    // Don't show dialog if chat is already ended
+    if (_controller.isChatEnded) return;
 
-  final result = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('Decline Conversation'),
-      content: const Text(
-          'Are you sure you want to decline this conversation? '
-          'You will not be able to message this user for 24 hours.'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('CANCEL'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          style: TextButton.styleFrom(foregroundColor: Colors.red),
-          child: const Text('DECLINE'),
-        ),
-      ],
-    ),
-  );
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Decline Conversation'),
+        content: const Text(
+            'Are you sure you want to decline this conversation? '
+            'You will not be able to message this user for 24 hours.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('CANCEL'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('DECLINE'),
+          ),
+        ],
+      ),
+    );
 
-  if (result == true) {
-    try {
-      // Show loading
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-      
-      await _controller.endChat(reason: 'declined');
-      
-      // Hide loading
-      if (mounted) Navigator.of(context).pop();
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('User has been declined')),
+    if (result == true) {
+      try {
+        // Show loading
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(),
+          ),
         );
-      }
-    } catch (e) {
-      // Hide loading
-      if (mounted) Navigator.of(context).pop();
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to decline chat: ${e.toString()}')),
-        );
+        
+        await _controller.endChat(reason: 'declined');
+        
+        // Hide loading
+        if (mounted) Navigator.of(context).pop();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('User has been declined')),
+          );
+        }
+      } catch (e) {
+        // Hide loading
+        if (mounted) Navigator.of(context).pop();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to decline chat: ${e.toString()}')),
+          );
+        }
       }
     }
   }
-}
 
   Widget _buildMeetingStatusBanner() {
     if (_controller.meetingConfirmed) {
@@ -283,11 +291,11 @@ Future<void> _confirmEndChat() async {
             const SizedBox(width: 8),
             const Expanded(
               child: Text(
-                "You both have accepted to meet.",
+                "You both have accepted to meet. Map shown below.",
                 style: TextStyle(
                   color: Colors.green,
                   fontWeight: FontWeight.bold,
-                ), // Fixed missing colon
+                ),
               ),
             ),
           ],
@@ -349,7 +357,7 @@ Future<void> _confirmEndChat() async {
 
   @override
   Widget build(BuildContext context) {
-    // Show a loading indicator until initialization is complete
+    // Show loading indicator until initialization is complete
     if (!_controller.isInitialized && _controller.currentUserId != null) {
       return Scaffold(
         appBar: AppBar(
@@ -412,7 +420,7 @@ Future<void> _confirmEndChat() async {
                       style: TextStyle(
                         color: _controller.isChatEnded ? Colors.red : Colors.green, 
                         fontSize: 12
-                      ), // Fixed missing colon
+                      ),
                     ),
                   ],
                 ),
@@ -424,6 +432,19 @@ Future<void> _confirmEndChat() async {
         elevation: 1,
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
+          if (!_controller.isChatEnded && _controller.meetingConfirmed)
+            IconButton(
+              icon: Icon(
+                _showMap ? Icons.chat : Icons.map,
+                color: Colors.blue,
+              ),
+              onPressed: () {
+                setState(() {
+                  _showMap = !_showMap;
+                });
+              },
+              tooltip: _showMap ? 'Show Chat' : 'Show Map',
+            ),
           if (!_controller.isChatEnded) // Show settings only if chat is active
             IconButton(
               icon: const Icon(Icons.settings, color: Colors.orange),
@@ -447,7 +468,7 @@ Future<void> _confirmEndChat() async {
               _buildMeetingStatusBanner(),
               
             // Action buttons pane (Meet/Decline)
-            if (!_controller.isChatEnded)
+            if (!_controller.isChatEnded && !_showMap)
               ActionButtonsPane(
                 onEndChat: _confirmEndChat,
                 onDecline: _confirmDeclineChat,
@@ -459,25 +480,36 @@ Future<void> _confirmEndChat() async {
                 meetingConfirmed: _controller.meetingConfirmed,
               ),
               
-            Expanded(
-              child: MessagesList(
-                messagesStream: _controller.messagesStream,
-                messages: _controller.messages,
-                currentUserId: _controller.currentUserId,
-                isChatEnded: _controller.isChatEnded,
-                ageGapWarningNeeded: _controller.ageGapWarningNeeded,
-                isCurrentUserMinor: _controller.isCurrentUserMinor,
-                buildChatBubble: (message, isMine) => ChatBubble(
-                  message: message,
-                  isMine: isMine,
+            // Show either map or chat based on the state
+            if (_showMap && _controller.meetingConfirmed && _controller.currentUserId != null)
+              Expanded(
+                child: MeetingMapView(
+                  currentUserId: _controller.currentUserId!,
+                  recipientId: widget.recipientId,
+                  recipientUsername: _controller.recipientUsername ?? "User",
                 ),
-                buildSystemMessage: (message) => SystemMessage(
-                  message: message,
+              )
+            else
+              Expanded(
+                child: MessagesList(
+                  messagesStream: _controller.messagesStream,
+                  messages: _controller.messages,
+                  currentUserId: _controller.currentUserId,
+                  isChatEnded: _controller.isChatEnded,
+                  ageGapWarningNeeded: _controller.ageGapWarningNeeded,
+                  isCurrentUserMinor: _controller.isCurrentUserMinor,
+                  buildChatBubble: (message, isMine) => ChatBubble(
+                    message: message,
+                    isMine: isMine,
+                  ),
+                  buildSystemMessage: (message) => SystemMessage(
+                    message: message,
+                  ),
                 ),
               ),
-            ),
             
-            if (!_controller.isChatEnded)
+            // Only show the message input if we're in chat mode
+            if (!_controller.isChatEnded && !_showMap)
               MessageInput(
                 onSend: (text) async {
                   try {
@@ -490,6 +522,48 @@ Future<void> _confirmEndChat() async {
                     }
                   }
                 },
+              ),
+              
+            // Show action buttons for the map view
+            if (_showMap && _controller.meetingConfirmed && !_controller.isChatEnded)
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _showMap = false;
+                          });
+                        },
+                        icon: const Icon(Icons.chat),
+                        label: const Text("Back to Chat"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          _confirmEndChat();
+                        },
+                        icon: const Icon(Icons.cancel),
+                        label: const Text("End Meeting"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               
             if (_controller.isChatEnded)

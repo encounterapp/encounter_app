@@ -45,10 +45,12 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
-	<!-- Add location permission keys here -->
+	<!-- Add location permission keys with more detailed descriptions -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Encounter needs your location to show nearby users and relevant posts in your area.</string>
+	<string>Encounter needs your location to show you on the map when meeting with other users.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Encounter needs your location to show nearby users and relevant posts in your area.</string>
+	<string>Encounter needs your location to show you on the map when meeting with other users.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Encounter needs your location to show you on the map when meeting with other users.</string>
 </dict>
 </plist>

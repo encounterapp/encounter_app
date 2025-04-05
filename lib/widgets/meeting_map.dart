@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:encounter_app/widgets/meeting_map.dart';
+import 'package:encounter_app/components/meeting_map_view.dart';
 
 /// A simple widget that wraps the MeetingMapView and adds any additional
 /// functionality needed for the meeting map. This is a separate widget to

@@ -129,7 +129,9 @@ class _MeetingMapViewState extends State<MeetingMapView> {
   Future<void> _getCurrentUserLocation() async {
     try {
       Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high
+        )
       );
       
       setState(() {
@@ -140,9 +142,11 @@ class _MeetingMapViewState extends State<MeetingMapView> {
       await _saveCurrentUserLocation(position.latitude, position.longitude);
       
       // Center map on our position initially if recipient location is not available
-      if (_recipientLocation == null && _mapController.ready) {
-        _mapController.move(_currentUserLocation!, 15.0);
-      } else if (_currentUserLocation != null && _recipientLocation != null && _mapController.ready) {
+      if (_recipientLocation == null) {
+        if (_currentUserLocation != null) {
+          _mapController.move(_currentUserLocation!, 15.0);
+        }
+      } else if (_currentUserLocation != null && _recipientLocation != null) {
         _centerMapOnBothUsers();
       }
     } catch (e) {
@@ -153,7 +157,9 @@ class _MeetingMapViewState extends State<MeetingMapView> {
   Future<void> _updateCurrentUserLocation() async {
     try {
       Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high
+        )
       );
       
       setState(() {
@@ -164,7 +170,7 @@ class _MeetingMapViewState extends State<MeetingMapView> {
       await _saveCurrentUserLocation(position.latitude, position.longitude);
       
       // Recenter the map when locations update
-      if (_currentUserLocation != null && _recipientLocation != null && _mapController.ready) {
+      if (_currentUserLocation != null && _recipientLocation != null) {
         _centerMapOnBothUsers();
       }
     } catch (e) {
@@ -204,7 +210,7 @@ class _MeetingMapViewState extends State<MeetingMapView> {
         });
         
         // Center map on both users if we have both locations
-        if (_currentUserLocation != null && _recipientLocation != null && _mapController.ready) {
+        if (_currentUserLocation != null && _recipientLocation != null) {
           _centerMapOnBothUsers();
         }
       }
@@ -217,22 +223,53 @@ class _MeetingMapViewState extends State<MeetingMapView> {
     if (_currentUserLocation == null || _recipientLocation == null) return;
     
     try {
-      // Calculate the bounds to include both positions with some padding
-      final bounds = LatLngBounds.fromPoints([
-        _currentUserLocation!,
-        _recipientLocation!,
-      ]);
+      // Create a list of points
+      final points = [_currentUserLocation!, _recipientLocation!];
       
-      // Center the map on the bounds with some padding
-      _mapController.fitBounds(
-        bounds,
-        options: const FitBoundsOptions(
-          padding: EdgeInsets.all(50.0),
-        ),
+      // Find the bounds
+      double minLat = double.infinity;
+      double maxLat = -double.infinity;
+      double minLng = double.infinity;
+      double maxLng = -double.infinity;
+      
+      for (final point in points) {
+        minLat = minLat < point.latitude ? minLat : point.latitude;
+        maxLat = maxLat > point.latitude ? maxLat : point.latitude;
+        minLng = minLng < point.longitude ? minLng : point.longitude;
+        maxLng = maxLng > point.longitude ? maxLng : point.longitude;
+      }
+      
+      // Add some padding
+      final paddingDegrees = 0.005; // Roughly 500m at equator
+      minLat -= paddingDegrees;
+      maxLat += paddingDegrees;
+      minLng -= paddingDegrees;
+      maxLng += paddingDegrees;
+      
+      // Create the bounds
+      final bounds = LatLngBounds(
+        LatLng(minLat, minLng),
+        LatLng(maxLat, maxLng),
       );
+      
+      // Fit the bounds on the map
+      final centerLat = (minLat + maxLat) / 2;
+      final centerLng = (minLng + maxLng) / 2;
+      
+      // Calculate zoom level based on bounds
+      final latZoom = _calculateZoomLevel(maxLat - minLat);
+      final lngZoom = _calculateZoomLevel(maxLng - minLng);
+      final zoom = latZoom < lngZoom ? latZoom : lngZoom;
+      
+      _mapController.move(LatLng(centerLat, centerLng), zoom);
     } catch (e) {
       debugPrint('Error centering map: $e');
     }
+  }
+  
+  double _calculateZoomLevel(double degrees) {
+    // Rough approximation
+    return 15 - (degrees * 800);
   }
   
   LatLng _getAnimatedPosition(LatLng start, LatLng end, double progress) {
@@ -294,7 +331,7 @@ class _MeetingMapViewState extends State<MeetingMapView> {
     return Column(
       children: [
         // Map container with fixed height
-        Container(
+        SizedBox(
           height: 300,
           width: double.infinity,
           child: FlutterMap(
@@ -483,7 +520,7 @@ class _MeetingMapViewState extends State<MeetingMapView> {
                 decoration: BoxDecoration(
                   color: Colors.orange[50],
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.orange),
+                  border: Border.all(color: Colors.orange!),
                 ),
                 child: Row(
                   children: [
