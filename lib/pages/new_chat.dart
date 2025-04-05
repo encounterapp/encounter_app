@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:encounter_app/components/meeting_map_view.dart';
+import 'package:encounter_app/components/google_meeting_map_view.dart';
 import 'package:encounter_app/widgets/chat_bubble.dart';
 import 'package:encounter_app/widgets/system_message.dart';
 import 'package:encounter_app/widgets/message_input.dart';
@@ -594,7 +594,7 @@ void _controllerUpdated() {
             Expanded(
               child: Container(
                 clipBehavior: Clip.none, // This prevents overflow clipping
-                child: MeetingMapView(
+                child: GoogleMeetingMapView(
                   currentUserId: _controller.currentUserId!,
                   recipientId: widget.recipientId,
                   recipientUsername: _controller.recipientUsername ?? "User",

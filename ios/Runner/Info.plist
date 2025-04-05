@@ -45,7 +45,12 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
-	<!-- Add location permission keys with more detailed descriptions -->
+	<!-- Add Google Maps API key -->
+	<key>io.flutter.embedded_views_preview</key>
+	<true/>
+	<key>GoogleMapsApiKey</key>
+	<string>AIzaSyAkWTzPc5P14DXBsNLyv3papwPi5LzQ00I</string>
+	<!-- Location permission keys with detailed descriptions -->
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Encounter needs your location to show you on the map when meeting with other users.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
