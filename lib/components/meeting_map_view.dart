@@ -331,9 +331,7 @@ class _MeetingMapViewState extends State<MeetingMapView> {
     return Column(
       children: [
         // Map container with fixed height
-        SizedBox(
-          height: 300,
-          width: double.infinity,
+        Expanded(
           child: FlutterMap(
             mapController: _mapController,
             options: MapOptions(

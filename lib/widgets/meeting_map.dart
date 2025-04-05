@@ -18,10 +18,12 @@ class MeetingMap extends StatelessWidget {
   
   @override
   Widget build(BuildContext context) {
-    return MeetingMapView(
-      currentUserId: currentUserId,
-      recipientId: recipientId,
-      recipientUsername: recipientUsername,
+    return Flexible(
+      child: MeetingMapView(
+        currentUserId: currentUserId,
+        recipientId: recipientId,
+        recipientUsername: recipientUsername,
+      ),
     );
   }
 }

@@ -591,13 +591,16 @@ void _controllerUpdated() {
               
             // Show either map or chat based on the state
             if (_showMap && _controller.meetingConfirmed && _controller.currentUserId != null)
-              Expanded(
+            Expanded(
+              child: Container(
+                clipBehavior: Clip.none, // This prevents overflow clipping
                 child: MeetingMapView(
                   currentUserId: _controller.currentUserId!,
                   recipientId: widget.recipientId,
                   recipientUsername: _controller.recipientUsername ?? "User",
                 ),
-              )
+              ),
+            )
             else
               Expanded(
                 child: MessagesList(
