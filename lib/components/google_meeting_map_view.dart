@@ -40,14 +40,14 @@ class _GoogleMeetingMapViewState extends State<GoogleMeetingMapView> {
   Timer? _locationUpdateTimer;
   Timer? _locationFetchTimer;
   
-  // Custom marker icons
-  BitmapDescriptor? _userMarkerIcon;
-  BitmapDescriptor? _recipientMarkerIcon;
+  // Custom marker icons - using default hues instead of SVG images
+  BitmapDescriptor _userMarkerIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
+  BitmapDescriptor _recipientMarkerIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
   
   @override
   void initState() {
     super.initState();
-    _initializeIcons().then((_) => _initializeMap());
+    _initializeMap();
   }
   
   @override
@@ -55,33 +55,6 @@ class _GoogleMeetingMapViewState extends State<GoogleMeetingMapView> {
     _locationUpdateTimer?.cancel();
     _locationFetchTimer?.cancel();
     super.dispose();
-  }
-  
-  Future<void> _initializeIcons() async {
-    try {
-      // Load custom marker icons
-      _userMarkerIcon = await BitmapDescriptor.fromAssetImage(
-        const ImageConfiguration(size: Size(48, 48)),
-        'assets/icons/user_marker.png',
-      ).catchError((error) {
-        // Fallback to default marker if asset not found
-        return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
-      });
-      
-      _recipientMarkerIcon = await BitmapDescriptor.fromAssetImage(
-        const ImageConfiguration(size: Size(48, 48)),
-        'assets/icons/recipient_marker.png',
-      ).catchError((error) {
-        // Fallback to default marker if asset not found
-        return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
-      });
-    } catch (e) {
-      debugPrint('Error loading marker icons: $e');
-    }
-    
-    // Set default markers if loading custom ones failed
-    _userMarkerIcon ??= BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
-    _recipientMarkerIcon ??= BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
   }
   
   Future<void> _initializeMap() async {
@@ -258,7 +231,7 @@ class _GoogleMeetingMapViewState extends State<GoogleMeetingMapView> {
           markerId: const MarkerId('current_user'),
           position: _currentUserLocation!,
           infoWindow: const InfoWindow(title: 'You'),
-          icon: _userMarkerIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+          icon: _userMarkerIcon,
         ),
       );
     }
@@ -270,7 +243,7 @@ class _GoogleMeetingMapViewState extends State<GoogleMeetingMapView> {
           markerId: const MarkerId('recipient'),
           position: _recipientLocation!,
           infoWindow: InfoWindow(title: widget.recipientUsername),
-          icon: _recipientMarkerIcon ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+          icon: _recipientMarkerIcon,
         ),
       );
     }
@@ -464,7 +437,7 @@ class _GoogleMeetingMapViewState extends State<GoogleMeetingMapView> {
                   decoration: BoxDecoration(
                     color: Colors.orange[50],
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.orange!),
+                    border: Border.all(color: Colors.orange),
                   ),
                   child: Row(
                     children: [
