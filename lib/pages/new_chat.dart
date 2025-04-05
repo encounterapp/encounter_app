@@ -30,6 +30,7 @@ class _ChatScreenState extends State<ChatScreen> {
   late ChatController _controller;
   final ScrollController _scrollController = ScrollController();
   bool _showMap = false;
+  bool _mapToggledOff = false;
   
   @override
   void initState() {
@@ -53,13 +54,15 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
   
-  void _controllerUpdated() {
-    if (mounted) {
-      setState(() {
-        // Show map when meeting is confirmed
-        _showMap = _controller.meetingConfirmed;
-      });
-    }
+void _controllerUpdated() {
+  if (mounted) {
+    setState(() {
+      // Only show map when meeting is confirmed AND user hasn't manually toggled it off
+      if (_controller.meetingConfirmed && !_mapToggledOff) {
+        _showMap = true;
+      }
+    });
+  }
     
     // Scroll to bottom when messages update
     if (_controller.messages.isNotEmpty) {
@@ -275,6 +278,111 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  /// Handles the meeting result (success or failure)
+  Future<void> _handleMeetingResult(bool didMeet) async {
+  // First ask for confirmation
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(didMeet ? 'Confirm Meeting Success' : 'Confirm Meeting Did Not Happen'),
+      content: Text(
+          didMeet 
+              ? 'Are you confirming that you successfully met with ${_controller.recipientUsername ?? "this user"}?'
+              : 'Are you confirming that you did not meet with ${_controller.recipientUsername ?? "this user"}?'
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('CANCEL'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: didMeet ? Colors.green : Colors.red,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('CONFIRM'),
+        ),
+      ],
+    ),
+  );
+
+  if (result != true) return; // User canceled
+
+  try {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    // Update chat session with meeting result
+    final userId = _controller.currentUserId;
+    if (userId == null) {
+      if (mounted) Navigator.of(context).pop(); // Hide loading
+      return;
+    }
+
+    // Create unique key for this chat session
+    final smallerId = userId.compareTo(widget.recipientId) < 0 
+        ? userId 
+        : widget.recipientId;
+    final largerId = userId.compareTo(widget.recipientId) < 0 
+        ? widget.recipientId 
+        : userId;
+    final chatId = '${smallerId}_$largerId';
+
+    // Update the chat session with meeting result
+    await Supabase.instance.client.from('chat_sessions').update({
+      'meeting_happened': didMeet,
+      'meeting_result_reported_at': DateTime.now().toIso8601String(),
+      'meeting_result_reported_by': userId,
+    }).eq('id', chatId);
+
+    // Add system message about meeting result
+    final message = didMeet
+        ? "You reported that you successfully met with ${_controller.recipientUsername ?? 'the other user'}."
+        : "You reported that you did not meet with ${_controller.recipientUsername ?? 'the other user'}.";
+    
+    await _controller.sendSystemMessage(message);
+
+    // Hide loading indicator
+    if (mounted) Navigator.of(context).pop();
+
+    // Return to chat view
+    setState(() {
+      _showMap = false;
+      _mapToggledOff = true;
+    });
+
+    // Show success message
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Meeting result recorded: ${didMeet ? "Met successfully" : "Did not meet"}'),
+          backgroundColor: didMeet ? Colors.green : Colors.orange,
+        ),
+      );
+    }
+  } catch (e) {
+    // Hide loading indicator
+    if (mounted) Navigator.of(context).pop();
+    
+    // Show error
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error recording meeting result: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+}
+
   Widget _buildMeetingStatusBanner() {
     if (_controller.meetingConfirmed) {
       return Container(
@@ -433,18 +541,19 @@ class _ChatScreenState extends State<ChatScreen> {
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
           if (!_controller.isChatEnded && _controller.meetingConfirmed)
-            IconButton(
-              icon: Icon(
-                _showMap ? Icons.chat : Icons.map,
-                color: Colors.blue,
-              ),
-              onPressed: () {
-                setState(() {
-                  _showMap = !_showMap;
-                });
-              },
-              tooltip: _showMap ? 'Show Chat' : 'Show Map',
+          IconButton(
+            icon: Icon(
+              _showMap ? Icons.chat : Icons.map,
+              color: Colors.blue,
             ),
+            onPressed: () {
+              setState(() {
+                _showMap = !_showMap;
+                _mapToggledOff = !_showMap; // Track manual toggle
+              });
+            },
+            tooltip: _showMap ? 'Show Chat' : 'Show Map',
+          ),
           if (!_controller.isChatEnded) // Show settings only if chat is active
             IconButton(
               icon: const Icon(Icons.settings, color: Colors.orange),
@@ -526,45 +635,43 @@ class _ChatScreenState extends State<ChatScreen> {
               
             // Show action buttons for the map view
             if (_showMap && _controller.meetingConfirmed && !_controller.isChatEnded)
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            _showMap = false;
-                          });
-                        },
-                        icon: const Icon(Icons.chat),
-                        label: const Text("Back to Chat"),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        _handleMeetingResult(true); // We Met successfully
+                      },
+                      icon: const Icon(Icons.check_circle),
+                      label: const Text("We Met"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          _confirmEndChat();
-                        },
-                        icon: const Icon(Icons.cancel),
-                        label: const Text("End Meeting"),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        _handleMeetingResult(false); // We did not meet
+                      },
+                      icon: const Icon(Icons.cancel),
+                      label: const Text("We Did Not Meet"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
+            ),
               
             if (_controller.isChatEnded)
               ChatEndedFooter(

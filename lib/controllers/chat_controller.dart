@@ -589,4 +589,22 @@ static Future<bool> canStartChatWith(String userId1, String userId2) async {
     return true; // Allow chat on error to prevent blocking legitimate chats
   }
 }
+
+/// Send a system message that will be visible to both users
+Future<void> sendSystemMessage(String text) async {
+  if (currentUserId == null || isChatEnded) return;
+  
+  try {
+    await supabase.from('messages').insert({
+      'sender_id': 'system',
+      'receiver_id': 'system',
+      'content': text,
+      'created_at': DateTime.now().toUtc().toIso8601String(),
+      'is_system_message': true,
+    });
+  } catch (e) {
+    debugPrint("Error sending system message: $e");
+    throw Exception('Failed to send system message: $e');
+  }
+}
 }
