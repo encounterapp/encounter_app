@@ -249,14 +249,7 @@ Future<void> _handleMeetingResult(bool didMeet) async {
         ? widget.recipientId : userId;
     final chatId = '${smallerId}_$largerId';
 
-    // Update the chat session with meeting result
-    await Supabase.instance.client.from('chat_sessions').update({
-      'meeting_happened': didMeet,
-      'meeting_result_reported_at': DateTime.now().toIso8601String(),
-      'meeting_result_reported_by': userId,
-    }).eq('id', chatId);
-
-    // Get the associated post ID if it exists
+    // Handle the post status updates first
     final chatSession = await Supabase.instance.client
         .from('chat_sessions')
         .select('post_id')
@@ -268,39 +261,27 @@ Future<void> _handleMeetingResult(bool didMeet) async {
     if (postId != null) {
       if (didMeet) {
         // If they met, keep the post closed
-        // Use only columns that exist in your database
         await Supabase.instance.client.from('posts').update({
-          'status': 'closed', // Keep it closed
+          'status': 'closed',
           'closed_at': DateTime.now().toUtc().toIso8601String(),
           'closed_by': chatId,
         }).eq('id', postId);
         
-        // Update local post status if using the controller
         if (_controller.postStatus != null) {
           _controller.postStatus = 'closed';
         }
       } else {
         // If they did not meet, reactivate the post
         await Supabase.instance.client.from('posts').update({
-          'status': 'active',  // Change back to active
-          'closed_at': null,   // Clear the closed timestamp
-          'closed_by': null,   // Clear the closed_by reference
+          'status': 'active',
+          'closed_at': null,
+          'closed_by': null,
         }).eq('id', postId);
         
-        // Update local post status if using the controller
         if (_controller.postStatus != null) {
           _controller.postStatus = 'active';
         }
       }
-    }
-
-    // Store the meeting result in chat_sessions to track which posts were successful
-    if (postId != null) {
-      // Add a new field in chat_sessions to track successful meetings
-      await Supabase.instance.client.from('chat_sessions').update({
-        'successful_meeting': didMeet,
-        'post_id': postId, // Ensure post_id is still linked
-      }).eq('id', chatId);
     }
 
     // Add system message about meeting result
@@ -308,35 +289,69 @@ Future<void> _handleMeetingResult(bool didMeet) async {
         ? "You reported that you successfully met with ${_controller.recipientUsername ?? 'the other user'}. The post has been archived."
         : "You reported that you did not meet with ${_controller.recipientUsername ?? 'the other user'}. The post has been reactivated.";
     
-    // Instead of using system message, send a normal message with the is_system_message flag
+    // Send system message
     try {
       await Supabase.instance.client.from('messages').insert({
-        'sender_id': userId,  // Use the current user's ID
-        'receiver_id': widget.recipientId,  // Send to the recipient
+        'sender_id': userId,
+        'receiver_id': widget.recipientId,
         'content': message,
         'created_at': DateTime.now().toUtc().toIso8601String(),
-        'is_system_message': true,  // Mark as a system message
+        'is_system_message': true,
       });
     } catch (e) {
       debugPrint("Error sending meeting result message: $e");
     }
 
-    // Return to chat view
-    setState(() {
-      _showMap = false;
-      _mapToggledOff = true;
-    });
-
-    // Show success message
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(didMeet
-            ? 'Meeting confirmed. Post has been archived.'
-            : 'Meeting declined. Post has been reactivated.'),
-          backgroundColor: didMeet ? Colors.green : Colors.orange,
-        ),
-      );
+    // Now force end the chat using a direct database update
+    try {
+      // Combine all updates into one operation
+      await Supabase.instance.client.from('chat_sessions').update({
+        'status': 'ended',
+        'ended_at': DateTime.now().toUtc().toIso8601String(),
+        'ended_by': userId,
+        'meeting_happened': didMeet,
+        'meeting_result_reported_at': DateTime.now().toIso8601String(),
+        'meeting_result_reported_by': userId,
+        'successful_meeting': didMeet,
+      }).eq('id', chatId);
+      
+      // Add another message indicating chat has ended
+      await Supabase.instance.client.from('messages').insert({
+        'sender_id': userId,
+        'receiver_id': widget.recipientId,
+        'content': "This conversation has been ended after reporting meeting outcome.",
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+        'is_system_message': true,
+      });
+      
+      // Force update UI state
+      setState(() {
+        _showMap = false;
+        _mapToggledOff = true;
+      });
+      
+      // Pop back to previous screen
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(didMeet
+              ? 'Meeting confirmed. Post has been archived and chat ended.'
+              : 'Meeting declined. Post has been reactivated and chat ended.'),
+            backgroundColor: didMeet ? Colors.green : Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("Error ending chat session: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error ending chat: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   });
 }
