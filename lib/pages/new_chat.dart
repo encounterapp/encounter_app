@@ -33,36 +33,47 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _showMap = false;
   bool _mapToggledOff = false;
   
-  @override
-  void initState() {
-    super.initState();
-    _controller = ChatController(
-      recipientId: widget.recipientId,
-      supabase: Supabase.instance.client,
-      onChatEnded: widget.onChatEnded,
-      postId: widget.postId,
-    );
+ @override
+void initState() {
+  super.initState();
+  _controller = ChatController(
+    recipientId: widget.recipientId,
+    supabase: Supabase.instance.client,
+    onChatEnded: widget.onChatEnded,
+    postId: widget.postId,
+  );
+  
+  _controller.addListener(_controllerUpdated);
+  
+  // Check age verification after a short delay
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Refresh post status when the screen becomes visible
+    if (widget.postId != null) {
+      _controller.refreshPostStatus();
+    }
     
-    _controller.addListener(_controllerUpdated);
-    
-    // Check age verification after a short delay
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) _showAgeVerificationIfNeeded();
-      });
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) _showAgeVerificationIfNeeded();
+    });
+  });
+}
+  
+void _controllerUpdated() {
+  if (mounted) {
+    setState(() {
+      // Only show map when meeting is confirmed AND user hasn't manually toggled it off
+      if (_controller.meetingConfirmed && !_mapToggledOff) {
+        _showMap = true;
+      }
+      
+      // If post status changes to closed, we may need to update UI accordingly
+      if (_controller.postStatus == 'closed') {
+        // Optional: Add specific UI updates for closed posts
+        debugPrint("Post is now closed!");
+      }
     });
   }
-  
-  void _controllerUpdated() {
-    if (mounted) {
-      setState(() {
-        // Only show map when meeting is confirmed AND user hasn't manually toggled it off
-        if (_controller.meetingConfirmed && !_mapToggledOff) {
-          _showMap = true;
-        }
-      });
-    }
-  }
+}
   
   @override
   void dispose() {
