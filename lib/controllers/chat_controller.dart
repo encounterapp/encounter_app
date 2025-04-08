@@ -100,7 +100,7 @@ class ChatController with ChangeNotifier {
     
     final String channelName = 'post_status_${postId}';
     
-   _postStatusChannel = supabase
+    _postStatusChannel = supabase
       .channel(channelName)
       .onPostgresChanges(
         event: PostgresChangeEvent.update,
@@ -117,13 +117,21 @@ class ChatController with ChangeNotifier {
           debugPrint("Post status changed: ${newRecord['status']}");
           
           if (newRecord['status'] != postStatus) {
+            final oldStatus = postStatus;
             postStatus = newRecord['status'];
+            
+            // If post becomes closed/archived, end this chat automatically
+            if (oldStatus != 'closed' && postStatus == 'closed' && !_isChatEnded) {
+              _isChatEnded = true;
+              _sendSystemMessage("This conversation has been ended because the post was archived.");
+            }
+            
             notifyListeners();
           }
         },
       )
       .subscribe();
-}
+  }
 
   // Add method to fetch post status
   Future<void> _fetchPostStatus() async {
@@ -783,6 +791,48 @@ static Future<bool> canStartChatWith(String userId1, String userId2) async {
   } catch (e) {
     debugPrint("Error checking if chat is allowed: $e");
     return true; // Allow chat on error to prevent blocking legitimate chats
+  }
+}
+
+static Future<void> endAllChatsForPost(String postId) async {
+  try {
+    // Get all chat sessions related to this post
+    final chatSessions = await Supabase.instance.client
+        .from('chat_sessions')
+        .select('id')
+        .eq('post_id', postId)
+        .neq('status', 'ended');
+        
+    // For each chat session, add a system message and end it
+    for (final session in chatSessions) {
+      final chatId = session['id'];
+      
+      // Get user IDs from chat ID
+      final parts = chatId.split('_');
+      if (parts.length == 2) {
+        final user1Id = parts[0];
+        final user2Id = parts[1];
+        
+        // Add system message to inform users
+        await Supabase.instance.client.from('messages').insert({
+          'sender_id': user1Id, // Use one of the users as sender
+          'receiver_id': user2Id,
+          'content': "This conversation has been ended because the post was archived.",
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+          'is_system_message': true,
+        });
+        
+        // End the chat session
+        await Supabase.instance.client.from('chat_sessions').update({
+          'status': 'ended',
+          'ended_at': DateTime.now().toUtc().toIso8601String(),
+          'ended_by': 'system',
+          'end_reason': 'post_archived',
+        }).eq('id', chatId);
+      }
+    }
+  } catch (e) {
+    debugPrint("Error ending chats for post $postId: $e");
   }
 }
 

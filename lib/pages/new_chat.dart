@@ -259,17 +259,20 @@ Future<void> _handleMeetingResult(bool didMeet) async {
     final String? postId = chatSession?['post_id'];
 
     if (postId != null) {
-      if (didMeet) {
-        // If they met, keep the post closed
-        await Supabase.instance.client.from('posts').update({
-          'status': 'closed',
-          'closed_at': DateTime.now().toUtc().toIso8601String(),
-          'closed_by': chatId,
-        }).eq('id', postId);
-        
-        if (_controller.postStatus != null) {
-          _controller.postStatus = 'closed';
-        }
+    if (didMeet) {
+      // Update post status to closed
+      await Supabase.instance.client.from('posts').update({
+        'status': 'closed',
+        'closed_at': DateTime.now().toUtc().toIso8601String(),
+        'closed_by': chatId,
+      }).eq('id', postId);
+      
+      // End all chat sessions related to this post
+      await ChatController.endAllChatsForPost(postId);
+      
+      if (_controller.postStatus != null) {
+        _controller.postStatus = 'closed';
+      }
       } else {
         // If they did not meet, reactivate the post
         await Supabase.instance.client.from('posts').update({
