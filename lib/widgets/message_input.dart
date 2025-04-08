@@ -1,4 +1,4 @@
-// message_input.dart
+// in lib/widgets/message_input.dart
 import 'package:flutter/material.dart';
 
 class MessageInput extends StatefulWidget {
@@ -29,29 +29,52 @@ class _MessageInputState extends State<MessageInput> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
+    return Container(
+      padding: const EdgeInsets.all(8.0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.2),
+            spreadRadius: 1,
+            blurRadius: 3,
+            offset: const Offset(0, -1),
+          ),
+        ],
+      ),
       child: Row(
         children: [
           Expanded(
             child: TextField(
               controller: _controller,
               decoration: InputDecoration(
-                hintText: "Your message",
-                filled: true,
-                fillColor: Colors.grey[200],
+                hintText: "Type a message...",
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30),
+                  borderRadius: BorderRadius.circular(20),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                filled: true,
+                fillColor: Colors.grey[200],
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
+              textCapitalization: TextCapitalization.sentences,
+              maxLines: null,
             ),
           ),
-          const SizedBox(width: 10),
-          IconButton(
-            icon: const Icon(Icons.send, color: Colors.blue),
-            onPressed: _sendMessage,
+          const SizedBox(width: 8),
+          Material(
+            color: Colors.blue,
+            borderRadius: BorderRadius.circular(30),
+            child: InkWell(
+              onTap: _sendMessage,
+              borderRadius: BorderRadius.circular(30),
+              child: Container(
+                width: 48,
+                height: 48,
+                alignment: Alignment.center,
+                child: const Icon(Icons.send, color: Colors.white),
+              ),
+            ),
           ),
         ],
       ),

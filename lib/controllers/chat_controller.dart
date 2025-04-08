@@ -299,7 +299,8 @@ Future<void> refreshPostStatus() async {
 void _setupMessagesStream() {
   if (currentUserId == null) return;
   
-  // Create unique chat ID
+  // Create unique chat ID that incorporates the post ID
+  final String chatId;
   final smallerId = currentUserId!.compareTo(recipientId) < 0 
       ? currentUserId 
       : recipientId;
@@ -308,32 +309,59 @@ void _setupMessagesStream() {
       : currentUserId;
       
   // If we have a post ID, include it in the chat ID
-  final chatId = postId != null 
-      ? '${smallerId}_${largerId}_${postId}'
-      : '${smallerId}_${largerId}';
+  if (postId != null) {
+    chatId = '${smallerId}_${largerId}_${postId}';
+  } else {
+    chatId = '${smallerId}_${largerId}';
+  }
+  
+  debugPrint("Looking for chat session with ID: $chatId");
   
   // Get the chat session to determine which messages to fetch
   supabase
       .from('chat_sessions')
       .select('id')
       .eq('id', chatId)
-      .single()
+      .maybeSingle()
       .then((chatSession) {
-        // Set up the messages stream for this specific chat session
-        _messagesStream = supabase
-            .from('messages')
-            .stream(primaryKey: ['id'])
-            .eq('chat_session_id', chatSession['id'])
-            .order('created_at', ascending: true)
-            .map((messages) {
-          _messages = messages;
-          notifyListeners();
-          return messages;
-        });
+        if (chatSession != null) {
+          debugPrint("Found chat session: ${chatSession['id']}");
+          // Set up the messages stream for this specific chat session
+          _messagesStream = supabase
+              .from('messages')
+              .stream(primaryKey: ['id'])
+              .eq('chat_session_id', chatSession['id'])
+              .order('created_at', ascending: true)
+              .map((messages) {
+            _messages = messages;
+            notifyListeners();
+            return messages;
+          });
+        } else {
+          // No chat session found, create a new stream for direct messages
+          debugPrint("No chat session found, using direct messages");
+          _messagesStream = supabase
+              .from('messages')
+              .stream(primaryKey: ['id'])
+              .order('created_at', ascending: true)
+              .map((messages) {
+            final filteredMessages = messages.where((msg) {
+              final senderId = msg['sender_id'];
+              final receiverId = msg['receiver_id'];
+              return (senderId == currentUserId && receiverId == recipientId) ||
+                  (senderId == recipientId && receiverId == currentUserId);
+            }).toList();
+
+            _messages = filteredMessages;
+            notifyListeners();
+
+            return filteredMessages;
+          });
+        }
       })
       .catchError((error) {
-        // If no specific chat session was found, fall back to the old behavior
-        // of showing all messages between these users
+        debugPrint("Error fetching chat session: $error");
+        // Fallback to showing all messages between these users
         _messagesStream = supabase
             .from('messages')
             .stream(primaryKey: ['id'])
@@ -661,17 +689,36 @@ static Future<String?> createChatSessionForPost(String postId, String recipientI
     // Generate a unique chat ID that includes the post ID to ensure a fresh chat
     final chatId = '${smallerId}_${largerId}_${postId}';
     
-    // Create new chat session without checking for existing ones
-    await Supabase.instance.client
+    // Check if this chat session already exists
+    final existingChat = await Supabase.instance.client
         .from('chat_sessions')
-        .insert({
-          'id': chatId,
-          'user1_id': smallerId,
-          'user2_id': largerId,
-          'post_id': postId,
-          'status': 'active',
-          'created_at': DateTime.now().toUtc().toIso8601String(),
-        });
+        .select()
+        .eq('id', chatId)
+        .maybeSingle();
+        
+    if (existingChat == null) {
+      // Create new chat session
+      await Supabase.instance.client
+          .from('chat_sessions')
+          .insert({
+            'id': chatId,
+            'user1_id': smallerId,
+            'user2_id': largerId,
+            'post_id': postId,
+            'status': 'active',
+            'created_at': DateTime.now().toUtc().toIso8601String(),
+          });
+          
+      // Add a system message
+      await Supabase.instance.client.from('messages').insert({
+        'sender_id': currentUser.id,
+        'receiver_id': recipientId,
+        'chat_session_id': chatId, // Explicitly set the chat session ID
+        'content': "Chat started about this post.",
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+        'is_system_message': true,
+      });
+    }
     
     return chatId;
   } catch (e) {

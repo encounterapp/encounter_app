@@ -591,49 +591,47 @@ Future<void> _handleMeetingResult(bool didMeet) async {
     );
   }
   
-Widget _buildMainContent() {
-  // Show map view
-  if (_showMap && _controller.meetingConfirmed && _controller.currentUserId != null) {
-    return Expanded(
-      child: Container(
-        clipBehavior: Clip.none,
+  Widget _buildMainContent() {
+    // Show map view if enabled and meeting is confirmed
+    if (_showMap && _controller.meetingConfirmed && _controller.currentUserId != null) {
+      return Expanded(
         child: GoogleMeetingMapView(
           currentUserId: _controller.currentUserId!,
           recipientId: widget.recipientId,
           recipientUsername: _controller.recipientUsername ?? "User",
         ),
+      );
+    }
+    
+    // Show messages list with input field at bottom for active chats
+    return Expanded(
+      child: Column(
+        children: [
+          // Messages list takes most of the space
+          Expanded(
+            child: MessagesList(
+              messagesStream: _controller.messagesStream,
+              messages: _controller.messages,
+              currentUserId: _controller.currentUserId,
+              isChatEnded: _controller.isChatEnded,
+              ageGapWarningNeeded: _controller.ageGapWarningNeeded,
+              isCurrentUserMinor: _controller.isCurrentUserMinor,
+              buildChatBubble: (message, isMine) => ChatBubble(
+                message: message,
+                isMine: isMine,
+              ),
+              buildSystemMessage: (message) => SystemMessage(
+                message: message,
+              ),
+            ),
+          ),
+          // Add message input field only if chat is active
+          if (!_controller.isChatEnded)
+            MessageInput(
+              onSend: (text) => _controller.sendMessage(text),
+            ),
+        ],
       ),
     );
   }
-  
-  // Show message list
-  return Expanded(
-    child: Column(
-      children: [
-        Expanded(
-          child: MessagesList(
-            messagesStream: _controller.messagesStream,
-            messages: _controller.messages,
-            currentUserId: _controller.currentUserId,
-            isChatEnded: _controller.isChatEnded,
-            ageGapWarningNeeded: _controller.ageGapWarningNeeded,
-            isCurrentUserMinor: _controller.isCurrentUserMinor,
-            buildChatBubble: (message, isMine) => ChatBubble(
-              message: message,
-              isMine: isMine,
-            ),
-            buildSystemMessage: (message) => SystemMessage(
-              message: message,
-            ),
-          ),
-        ),
-        // Add message input field only if chat is not ended
-        if (!_controller.isChatEnded)
-          MessageInput(
-            onSend: (text) => _controller.sendMessage(text),
-          ),
-      ],
-    ),
-  );
-}
-}
+  }
