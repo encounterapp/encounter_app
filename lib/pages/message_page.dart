@@ -45,7 +45,7 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
       // Fetch all chat sessions for the current user
       final chatSessionsQuery = await supabase
           .from('chat_sessions')
-          .select('id, user1_id, user2_id, status, ended_at, created_at')
+          .select('id, user1_id, user2_id, status, ended_at, created_at, post_id')
           .or('user1_id.eq.$currentUserId,user2_id.eq.$currentUserId');
       
       // Extract partner IDs from each session
@@ -67,57 +67,91 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
             
         if (profileResponse == null) continue;
         
-        // Get latest message from this chat
+        // Get latest message from this chat session
         final latestMessageQuery = await supabase
             .from('messages')
             .select()
-            .or('and(sender_id.eq.$currentUserId,receiver_id.eq.$partnerId),and(sender_id.eq.$partnerId,receiver_id.eq.$currentUserId)')
+            .eq('chat_session_id', session['id'])  // Use chat_session_id field
             .order('created_at', ascending: false)
             .limit(1)
             .maybeSingle();
-            
-        if (latestMessageQuery == null) continue;
         
-        // Create conversation entry
-        final conversation = {
-          'id': partnerId,
-          'username': profileResponse['username'] ?? 'Unknown User',
-          'avatar_url': profileResponse['avatar_url'],
-          'last_message': latestMessageQuery['content'],
-          'timestamp': latestMessageQuery['created_at'],
-          'is_sender': latestMessageQuery['sender_id'] == currentUserId,
-          'chat_status': session['status'],
-          'ended_at': session['ended_at'],
-        };
-        
-        // Add to appropriate list based on chat status
-        if (session['status'] == 'ended') {
-          archivedConversations.add(conversation);
+        // If no messages found with chat_session_id, try the old way (direct sender/receiver)
+        if (latestMessageQuery == null) {
+          final directMessageQuery = await supabase
+              .from('messages')
+              .select()
+              .or('and(sender_id.eq.$currentUserId,receiver_id.eq.$partnerId),and(sender_id.eq.$partnerId,receiver_id.eq.$currentUserId)')
+              .order('created_at', ascending: false)
+              .limit(1)
+              .maybeSingle();
+              
+          if (directMessageQuery == null) continue;
+          
+          // Create conversation entry
+          final conversation = {
+            'id': partnerId,
+            'username': profileResponse['username'] ?? 'Unknown User',
+            'avatar_url': profileResponse['avatar_url'],
+            'last_message': directMessageQuery['content'],
+            'timestamp': directMessageQuery['created_at'],
+            'is_sender': directMessageQuery['sender_id'] == currentUserId,
+            'chat_status': session['status'],
+            'ended_at': session['ended_at'],
+            'chat_session_id': session['id'],
+            'post_id': session['post_id'],
+          };
+          
+          // Add to appropriate list based on chat status
+          if (session['status'] == 'ended') {
+            archivedConversations.add(conversation);
+          } else {
+            activeConversations.add(conversation);
+          }
         } else {
-          activeConversations.add(conversation);
+          // Create conversation entry from chat_session_id message
+          final conversation = {
+            'id': partnerId,
+            'username': profileResponse['username'] ?? 'Unknown User',
+            'avatar_url': profileResponse['avatar_url'],
+            'last_message': latestMessageQuery['content'],
+            'timestamp': latestMessageQuery['created_at'],
+            'is_sender': latestMessageQuery['sender_id'] == currentUserId,
+            'chat_status': session['status'],
+            'ended_at': session['ended_at'],
+            'chat_session_id': session['id'],
+            'post_id': session['post_id'],
+          };
+          
+          // Add to appropriate list based on chat status
+          if (session['status'] == 'ended') {
+            archivedConversations.add(conversation);
+          } else {
+            activeConversations.add(conversation);
+          }
         }
       }
-      
-      // Sort by latest message
-      activeConversations.sort((a, b) => 
-          DateTime.parse(b['timestamp']).compareTo(DateTime.parse(a['timestamp'])));
-      archivedConversations.sort((a, b) => 
-          DateTime.parse(b['timestamp']).compareTo(DateTime.parse(a['timestamp'])));
+    
+    // Sort by latest message
+    activeConversations.sort((a, b) => 
+        DateTime.parse(b['timestamp']).compareTo(DateTime.parse(a['timestamp'])));
+    archivedConversations.sort((a, b) => 
+        DateTime.parse(b['timestamp']).compareTo(DateTime.parse(a['timestamp'])));
 
-      if (mounted) {
-        setState(() {
-          _activeConversations = activeConversations;
-          _archivedConversations = archivedConversations;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      debugPrint('Error fetching conversations: $e');
+    if (mounted) {
       setState(() {
+        _activeConversations = activeConversations;
+        _archivedConversations = archivedConversations;
         _isLoading = false;
       });
     }
+  } catch (e) {
+    debugPrint('Error fetching conversations: $e');
+    setState(() {
+      _isLoading = false;
+    });
   }
+}
 
   String _formatTimestamp(String timestamp) {
     final messageTime = DateTime.parse(timestamp);
@@ -287,6 +321,8 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
                 PageRouteBuilder(
                   pageBuilder: (context, animation, secondaryAnimation) => ChatScreen(
                     recipientId: conversation['id'],
+                    postId: conversation['post_id'],
+                    chatSessionId: conversation['chat_session_id'],
                   ),
                   transitionsBuilder: (context, animation, secondaryAnimation, child) {
                     const begin = Offset(0.0, 1.0);

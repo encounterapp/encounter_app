@@ -16,11 +16,13 @@ class ChatScreen extends StatefulWidget {
   final String recipientId;
   final VoidCallback? onChatEnded;
   final String? postId;
+  final String? chatSessionId;
 
   const ChatScreen({
     Key? key, 
     required this.recipientId, 
     this.postId, 
+    this.chatSessionId,
     this.onChatEnded
   }) : super(key: key);
 
@@ -41,6 +43,7 @@ void initState() {
     supabase: Supabase.instance.client,
     onChatEnded: widget.onChatEnded,
     postId: widget.postId,
+    chatSessionId: widget.chatSessionId, 
   );
   
   _controller.addListener(_controllerUpdated);

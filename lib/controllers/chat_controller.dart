@@ -6,6 +6,7 @@ import 'package:encounter_app/utils/age_verification_utils.dart';
 class ChatController with ChangeNotifier {
   // Dependencies
   final String recipientId;
+  final String? chatSessionId;
   final VoidCallback? onChatEnded;
   final SupabaseClient supabase;
   
@@ -61,6 +62,7 @@ class ChatController with ChangeNotifier {
     required this.supabase,
     this.onChatEnded,
     this.postId, 
+    this.chatSessionId,
   }) {
     _init();
   }
@@ -298,6 +300,24 @@ Future<void> refreshPostStatus() async {
   // Set up messages stream
 void _setupMessagesStream() {
   if (currentUserId == null) return;
+    // If we have a chat session ID directly, use it
+  if (chatSessionId != null) {
+    // Store in a local non-nullable variable to satisfy the type checker
+    final String sessionId = chatSessionId!;
+    
+    debugPrint("Using provided chat session ID: $sessionId");
+    _messagesStream = supabase
+        .from('messages')
+        .stream(primaryKey: ['id'])
+        .eq('chat_session_id', sessionId)  // Use the non-nullable local variable
+        .order('created_at', ascending: true)
+        .map((messages) {
+      _messages = messages;
+      notifyListeners();
+      return messages;
+    });
+    return;
+  }
   
   // Create unique chat ID that incorporates the post ID
   final String chatId;
@@ -463,36 +483,54 @@ void _setupMessagesStream() {
   
   // Send a message
   Future<void> sendMessage(String text) async {
-    if (!_isInitialized || currentUserId == null || _isChatEnded || text.trim().isEmpty) {
-      return;
-    }
-    
-    await _checkIfChatIsEnded();
-    if (_isChatEnded) return;
-    
-    final newMessage = {
-      'id': 'temp_${DateTime.now().millisecondsSinceEpoch}',
-      'sender_id': currentUserId,
-      'receiver_id': recipientId,
-      'content': text,
-      'created_at': DateTime.now().toUtc().toIso8601String(),
-    };
-
-    _messages.add(newMessage);
-    notifyListeners();
-
-    try {
-      await supabase.from('messages').insert({
-        'sender_id': newMessage['sender_id'],
-        'receiver_id': newMessage['receiver_id'],
-        'content': newMessage['content'],
-        'created_at': newMessage['created_at'],
-      });
-    } catch (e) {
-      debugPrint("Error sending message: $e");
-      throw Exception('Failed to send message: $e');
-    }
+  if (!_isInitialized || currentUserId == null || _isChatEnded || text.trim().isEmpty) {
+    return;
   }
+  
+  await _checkIfChatIsEnded();
+  if (_isChatEnded) return;
+  
+  // Create unique key for this chat session to get the chat ID
+  final smallerId = currentUserId!.compareTo(recipientId) < 0 
+      ? currentUserId 
+      : recipientId;
+  final largerId = currentUserId!.compareTo(recipientId) < 0 
+      ? recipientId 
+      : currentUserId;
+  
+  // Generate the chat session ID
+  final String chatId;
+  if (postId != null) {
+    chatId = '${smallerId}_${largerId}_${postId}';
+  } else {
+    chatId = '${smallerId}_${largerId}';
+  }
+  
+  final newMessage = {
+    'id': 'temp_${DateTime.now().millisecondsSinceEpoch}',
+    'sender_id': currentUserId,
+    'receiver_id': recipientId,
+    'chat_session_id': chatId, // Add the chat_session_id
+    'content': text,
+    'created_at': DateTime.now().toUtc().toIso8601String(),
+  };
+
+  _messages.add(newMessage);
+  notifyListeners();
+
+  try {
+    await supabase.from('messages').insert({
+      'sender_id': newMessage['sender_id'],
+      'receiver_id': newMessage['receiver_id'],
+      'chat_session_id': chatId, // Include the chat_session_id
+      'content': newMessage['content'],
+      'created_at': newMessage['created_at'],
+    });
+  } catch (e) {
+    debugPrint("Error sending message: $e");
+    throw Exception('Failed to send message: $e');
+  }
+}
   
   // Send a system message
   Future<void> _sendSystemMessage(String text) async {
