@@ -49,38 +49,70 @@ class ChatController with ChangeNotifier {
   bool get recipientRequestedMeeting => _recipientRequestedMeeting;
   bool get meetingConfirmed => _meetingConfirmed;
   bool get canRequestMeeting => !_isChatEnded && !_currentUserRequestedMeeting;
+
+  // Add post-related properties
+  final String? postId;
+  String? postStatus;
   
   // Constructor
   ChatController({
     required this.recipientId,
     required this.supabase,
     this.onChatEnded,
+    this.postId, 
   }) {
     _init();
   }
   
   // Initialize the controller
-Future<void> _init() async {
-  final currentUser = supabase.auth.currentUser;
-  if (currentUser == null) return;
+ Future<void> _init() async {
+    final currentUser = supabase.auth.currentUser;
+    if (currentUser == null) return;
+    
+    currentUserId = currentUser.id;
+    
+    // Check age verification first to prioritize it
+    await _checkAgeVerification();
+    
+    // Then load other data
+    await _checkIfChatIsEnded();
+    await _fetchUserProfile();
+    await _checkMeetingStatus();
+    
+    // If a postId was provided, fetch the post status
+    if (postId != null) {
+      await _fetchPostStatus();
+    }
+    
+    _setupMessagesStream();
+    _setupChatStatusListener();
+    _setupMeetingStatusListener();
+    
+    _isInitialized = true;
+    notifyListeners();
+  }
   
-  currentUserId = currentUser.id;
-  
-  // Check age verification first to prioritize it
-  await _checkAgeVerification();
-  
-  // Then load other data
-  await _checkIfChatIsEnded();
-  await _fetchUserProfile();
-  await _checkMeetingStatus();
-  
-  _setupMessagesStream();
-  _setupChatStatusListener();
-  _setupMeetingStatusListener();
-  
-  _isInitialized = true;
-  notifyListeners();
-}
+  // Add method to fetch post status
+  Future<void> _fetchPostStatus() async {
+    if (postId == null) return;
+    
+    try {
+      final String nonNullPostId = postId!; // Explicitly declare a non-null version
+      final response = await supabase
+          .from('posts')
+          .select('status')
+          .eq('id', nonNullPostId) // Use the non-null version
+          .single();
+          
+      if (response != null) {
+        postStatus = response['status'];
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint("Error fetching post status: $e");
+    }
+  }
+
   // Check age verification status
   Future<void> _checkAgeVerification() async {
     if (currentUserId == null) return;
@@ -361,7 +393,7 @@ Future<void> _init() async {
   }
   
 // Request to meet the recipient
-  Future<void> requestMeeting() async {
+Future<void> requestMeeting() async {
     if (_isChatEnded || currentUserId == null || _currentUserRequestedMeeting) return;
     
     try {
@@ -381,7 +413,7 @@ Future<void> _init() async {
       // Check if chat session exists
       final existingChat = await supabase
           .from('chat_sessions')
-          .select()
+          .select('*, post_id')
           .eq('id', chatId)
           .maybeSingle();
       
@@ -394,15 +426,23 @@ Future<void> _init() async {
         updateData['user2_meeting_requested'] = true;
       }
       
-      // Add meeting_confirmed = true if both users requested meeting
+      // Check if this is a confirmation (both users have requested meeting)
+      bool isMeetingConfirmed = false;
       if ((isUser1 && (existingChat?['user2_meeting_requested'] ?? false)) ||
           (!isUser1 && (existingChat?['user1_meeting_requested'] ?? false))) {
         updateData['meeting_confirmed'] = true;
-        updateData['meeting_confirmed_at'] = DateTime.now().toUtc().toIso8601String();
+        updateData['meeting_confirmed_at'] = DateTime.now().toIso8601String();
+        isMeetingConfirmed = true;
       }
       
       // Add a timestamp for the meeting request
-      updateData['meeting_requested_at'] = DateTime.now().toUtc().toIso8601String();
+      updateData['meeting_requested_at'] = DateTime.now().toIso8601String();
+      
+      // Link post ID if provided and not already linked
+      if (postId != null && (existingChat == null || existingChat['post_id'] == null)) {
+        final String nonNullPostId = postId!; // Explicitly declare a non-null version
+        updateData['post_id'] = nonNullPostId; // Use the non-null version
+      }
       
       if (existingChat != null) {
         // Update existing chat session
@@ -420,6 +460,12 @@ Future<void> _init() async {
           'created_at': DateTime.now().toUtc().toIso8601String(),
         };
         
+        // Add post ID if available
+        if (postId != null) {
+          final String nonNullPostId = postId!; // Explicitly declare a non-null version
+          initialData['post_id'] = nonNullPostId; // Use the non-null version
+        }
+        
         // Add meeting request details
         initialData.addAll(updateData);
         
@@ -428,12 +474,30 @@ Future<void> _init() async {
             .insert(initialData);
       }
       
+      // If meeting is confirmed, update post status to closed
+      if (isMeetingConfirmed && postId != null) {
+        final String nonNullPostId = postId!; // Explicitly declare a non-null version
+        await supabase
+            .from('posts')
+            .update({
+              'status': 'closed',
+              'closed_at': DateTime.now().toUtc().toIso8601String(),
+              'closed_by': chatId,
+            })
+            .eq('id', nonNullPostId); // Use the non-null version
+            
+        // Update local post status
+        postStatus = 'closed';
+        
+        // Send system message about post being closed
+        await _sendSystemMessage("This post has been marked as closed since both users have agreed to meet.");
+      }
+      
       // Update local state
       _currentUserRequestedMeeting = true;
       
       // Check if meeting is confirmed after the update
-      if ((isUser1 && (existingChat?['user2_meeting_requested'] ?? false)) ||
-          (!isUser1 && (existingChat?['user1_meeting_requested'] ?? false))) {
+      if (isMeetingConfirmed) {
         _meetingConfirmed = true;
         
         // Send system message about meeting confirmation
@@ -450,6 +514,77 @@ Future<void> _init() async {
     } catch (e) {
       debugPrint("Error requesting meeting: $e");
       throw Exception('Failed to request meeting: $e');
+    }
+  }
+  
+  // New method to check if a post is available for chatting
+  static Future<bool> isPostAvailable(String postId) async {
+    try {
+      final response = await Supabase.instance.client
+          .from('posts')
+          .select('status')
+          .eq('id', postId)
+          .single();
+          
+      return response['status'] == 'active';
+    } catch (e) {
+      debugPrint("Error checking post availability: $e");
+      return false;
+    }
+  }
+  
+  // New method to create a chat session linked to a post
+  static Future<String?> createChatSessionForPost(String postId, String recipientId) async {
+    final currentUser = Supabase.instance.client.auth.currentUser;
+    if (currentUser == null) return null;
+    
+    // First check if post is available
+    final isAvailable = await isPostAvailable(postId);
+    if (!isAvailable) return null;
+    
+    try {
+      // Create unique chat ID
+      final smallerId = currentUser.id.compareTo(recipientId) < 0 
+          ? currentUser.id 
+          : recipientId;
+      final largerId = currentUser.id.compareTo(recipientId) < 0 
+          ? recipientId 
+          : currentUser.id;
+      final chatId = '${smallerId}_$largerId';
+      
+      // Check if chat session already exists
+      final existingChat = await Supabase.instance.client
+          .from('chat_sessions')
+          .select()
+          .eq('id', chatId)
+          .maybeSingle();
+          
+      if (existingChat == null) {
+        // Create new chat session
+        await Supabase.instance.client
+            .from('chat_sessions')
+            .insert({
+              'id': chatId,
+              'user1_id': smallerId,
+              'user2_id': largerId,
+              'post_id': postId,
+              'status': 'active',
+              'created_at': DateTime.now().toUtc().toIso8601String(),
+            });
+      } else if (existingChat['post_id'] == null) {
+        // Update existing chat session with post ID
+        await Supabase.instance.client
+            .from('chat_sessions')
+            .update({
+              'post_id': postId,
+            })
+            .eq('id', chatId);
+      }
+      
+      return chatId;
+    } catch (e) {
+      debugPrint("Error creating chat session for post: $e");
+      return null;
     }
   }
   

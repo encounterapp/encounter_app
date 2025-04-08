@@ -85,9 +85,11 @@ class Post {
   final String? content;
   final DateTime createdAt;
   final DateTime? expiresAt;
+  final String status; // Added status field
   final double? distanceMiles;
 
   bool get isExpired => expiresAt != null && expiresAt!.isBefore(DateTime.now());
+  bool get isClosed => status == 'closed';
 
   Post({
     required this.id,
@@ -96,6 +98,7 @@ class Post {
     this.content,
     required this.createdAt,
     this.expiresAt,
+    this.status = 'active', // Default status is active
     this.distanceMiles,
   });
 
@@ -107,7 +110,31 @@ class Post {
       content: json['content'],
       createdAt: DateTime.parse(json['created_at']),
       expiresAt: json['expires_at'] != null ? DateTime.parse(json['expires_at']) : null,
+      status: json['status'] ?? 'active', // Default to active if null
       distanceMiles: json['distance_miles'],
+    );
+  }
+
+  // Create a new post with updated status
+  Post copyWith({
+    String? id,
+    String? userId,
+    String? title,
+    String? content,
+    DateTime? createdAt,
+    DateTime? expiresAt,
+    String? status,
+    double? distanceMiles,
+  }) {
+    return Post(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      title: title ?? this.title,
+      content: content ?? this.content,
+      createdAt: createdAt ?? this.createdAt,
+      expiresAt: expiresAt ?? this.expiresAt,
+      status: status ?? this.status,
+      distanceMiles: distanceMiles ?? this.distanceMiles,
     );
   }
 }
@@ -210,6 +237,13 @@ class PostListController {
         }
       }).toList();
       
+      // Filter out closed posts from main feed, but show them on user profiles
+      if (_userId == null) {
+        filteredData = filteredData.where((post) => 
+          post['status'] == null || post['status'] == 'active'
+        ).toList();
+      }
+      
       // Apply location and gender filtering if on the main feed
       if (_userId == null) {
         final filterResult = await PostLocationFilter.filterPosts(
@@ -260,12 +294,33 @@ class PostListController {
       
       // Execute the query
       final response = await query;
-      List<Map<String, dynamic>> filteredPosts = response;
+      
+      // Filter out expired posts
+      List<Map<String, dynamic>> filteredPosts = response.where((post) {
+        final expiresAt = post['expires_at'];
+        if (expiresAt == null) {
+          return true;
+        }
+        try {
+          final expiryDate = DateTime.parse(expiresAt);
+          return expiryDate.isAfter(DateTime.now());
+        } catch (e) {
+          debugPrint("Invalid date format for expires_at: $e");
+          return true;
+        }
+      }).toList();
+      
+      // Filter out closed posts from main feed, but show them on user profiles
+      if (_userId == null) {
+        filteredPosts = filteredPosts.where((post) => 
+          post['status'] == null || post['status'] == 'active'
+        ).toList();
+      }
       
       // Apply filters if not on a specific user profile
       if (_userId == null) {
         final filterResult = await PostLocationFilter.filterPosts(
-          response, 
+          filteredPosts, 
           maxDistance: _maxDistance,
           genderFilter: _genderFilter,
           locationFilterEnabled: _locationFilterEnabled
@@ -479,21 +534,49 @@ class PostCard extends StatelessWidget {
       return;
     }
 
-    // Add this check before allowing a new chat
-  final bool canChat = await ChatController.canStartChatWith(
-    currentUser.id,
-    recipientId
-  );
-  
-  if (!canChat) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('You cannot start a chat with this user for 24 hours after declining.'),
-        backgroundColor: Colors.red,
-      ),
+    // Check if post is closed
+    if (post.isClosed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This post is closed. The users have already matched.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Check if the user can start a chat (24-hour rule)
+    final bool canChat = await ChatController.canStartChatWith(
+      currentUser.id,
+      recipientId
     );
-    return; // Don't proceed with chat creation
-  }
+  
+    if (!canChat) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You cannot start a chat with this user for 24 hours after declining.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return; // Don't proceed with chat creation
+    }
+
+    // Create a chat session linked to this post
+    final chatSessionId = await ChatController.createChatSessionForPost(
+      post.id,
+      recipientId
+    );
+    
+    // If chat session creation failed, show error
+    if (chatSessionId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not create chat session. Try again later.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     // Show a modal bottom sheet for the chat screen
     showModalBottomSheet(
@@ -506,7 +589,10 @@ class PostCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       builder: (context) => SizedBox(
         height: MediaQuery.of(context).size.height * 0.9,
-        child: ChatScreen(recipientId: recipientId),
+        child: ChatScreen(
+          recipientId: recipientId,
+          postId: post.id, // Pass post ID to chat screen
+        ),
       ),
     );
   }
@@ -533,6 +619,26 @@ class PostCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Post status indicator
+          if (post.isClosed) 
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: Colors.red[100],
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: Colors.red)
+              ),
+              child: const Text(
+                'CLOSED',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            
           // User info row with avatar and username
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -580,9 +686,15 @@ class PostCard extends StatelessWidget {
           // Action buttons
           Row(
             children: [
+              // Make button disabled when post is closed
               IconButton(
-                icon: Image.asset("assets/icons/hand.png", width: 45),
-                onPressed: () => _handleChat(context, post.userId),
+                icon: Image.asset("assets/icons/hand.png", 
+                  width: 45,
+                  color: post.isClosed ? Colors.grey : null, // Grey out if closed
+                ),
+                onPressed: post.isClosed 
+                  ? null  // Disable the button if post is closed
+                  : () => _handleChat(context, post.userId),
               ),
             ],
           ),

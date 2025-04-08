@@ -80,6 +80,8 @@ class _NewPostState extends State<NewPost> {
             'title': _titleController.text.trim(),
             'content': _contentController.text.trim(),
             'expires_at': _selectedExpiration!.toIso8601String(),
+            'status': 'active', // Default status is active
+            'created_at': DateTime.now().toIso8601String(),
           })
           .select();
 
@@ -91,7 +93,7 @@ class _NewPostState extends State<NewPost> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text("Error: $errorMessage")),
           );
-          print("Supabase Error: $errorMessage");
+          debugPrint("Supabase Error: $errorMessage");
            setState(() => _isPosting = false); // Stop loading on error
         } else {
           // Show a success message.
@@ -110,19 +112,19 @@ class _NewPostState extends State<NewPost> {
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text("Failed to create post.  Empty response.")));
-        print("Supabase Error: Empty response from insert.");
+            content: Text("Failed to create post. Empty response.")));
+        debugPrint("Supabase Error: Empty response from insert.");
          setState(() => _isPosting = false); // Stop loading on empty response.
       }
     } on PostgrestException catch (e) {
       // Catch PostgrestException
-      print("Supabase PostgrestException: ${e.message}");
+      debugPrint("Supabase PostgrestException: ${e.message}");
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Error: ${e.message}")));
        setState(() => _isPosting = false); // Stop loading on exception
     } catch (e) {
       // Handle other errors during the process (e.g., network issues).
-      print("Error adding post: $e");
+      debugPrint("Error adding post: $e");
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("An unexpected error occurred.")));
        setState(() => _isPosting = false); // Stop loading on general error
@@ -136,44 +138,98 @@ class _NewPostState extends State<NewPost> {
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
-          // Added SingleChildScrollView
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Title Field
               TextField(
                 controller: _titleController,
                 decoration: const InputDecoration(
                   labelText: 'Title',
+                  border: OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 16),
 
               // Content Field
               TextField(
                 controller: _contentController,
-                decoration:
-                    const InputDecoration(labelText: 'What are you doing?'),
+                decoration: const InputDecoration(
+                  labelText: 'What are you doing?',
+                  border: OutlineInputBorder(),
+                ),
                 maxLines: 4,
               ),
               const SizedBox(height: 20),
 
-              // Expiration Time Picker
-              ListTile(
-                leading: const Icon(Icons.access_time),
-                title: Text(
-                  _selectedExpiration == null
-                      ? 'Select Expiration Time'
-                      : DateFormat('yyyy-MM-dd HH:mm')
-                          .format(_selectedExpiration!),
+              // Status info
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue[200]!),
                 ),
-                onTap: _pickExpirationDateTime,
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.blue[700]),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Your post will be active until someone accepts to meet with you, or until it expires.',
+                        style: TextStyle(fontSize: 14),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 20),
+
+              // Expiration Time Picker
+              InkWell(
+                onTap: _pickExpirationDateTime,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey[400]!),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.access_time, color: Colors.grey[700]),
+                      const SizedBox(width: 12),
+                      Text(
+                        _selectedExpiration == null
+                            ? 'Select Expiration Time'
+                            : 'Expires: ${DateFormat('yyyy-MM-dd HH:mm').format(_selectedExpiration!)}',
+                        style: TextStyle(
+                          color: _selectedExpiration == null ? Colors.grey[600] : Colors.black,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 32),
+              
+              // Submit Button
               ElevatedButton(
                 onPressed: _isPosting ? null : _addPost,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                  minimumSize: const Size(double.infinity, 48),
+                ),
                 child: _isPosting
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Post'),
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                    : const Text('Create Post', style: TextStyle(fontSize: 16)),
               ),
             ],
           ),
@@ -182,4 +238,3 @@ class _NewPostState extends State<NewPost> {
     );
   }
 }
-

@@ -15,10 +15,12 @@ import 'package:encounter_app/widgets/map_action_buttons.dart';
 class ChatScreen extends StatefulWidget {
   final String recipientId;
   final VoidCallback? onChatEnded;
+  final String? postId;
 
   const ChatScreen({
     Key? key, 
     required this.recipientId, 
+    this.postId, 
     this.onChatEnded
   }) : super(key: key);
 
@@ -38,6 +40,7 @@ class _ChatScreenState extends State<ChatScreen> {
       recipientId: widget.recipientId,
       supabase: Supabase.instance.client,
       onChatEnded: widget.onChatEnded,
+      postId: widget.postId,
     );
     
     _controller.addListener(_controllerUpdated);
@@ -446,6 +449,26 @@ class _ChatScreenState extends State<ChatScreen> {
                       fontSize: 12
                     ),
                   ),
+                  // Show post status if available
+                  if (_controller.postStatus == 'closed') ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: Colors.red[100],
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.red)
+                      ),
+                      child: const Text(
+                        'CLOSED',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ],
