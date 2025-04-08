@@ -85,11 +85,14 @@ class Post {
   final String? content;
   final DateTime createdAt;
   final DateTime? expiresAt;
-  final String status; // Added status field
+  final String status; // 'active', 'closed', etc.
   final double? distanceMiles;
+  final bool? meetingConfirmed;
+  final bool? meetingHappened;
 
   bool get isExpired => expiresAt != null && expiresAt!.isBefore(DateTime.now());
   bool get isClosed => status == 'closed';
+  bool get isArchived => isClosed && (meetingHappened ?? false);
 
   Post({
     required this.id,
@@ -100,6 +103,8 @@ class Post {
     this.expiresAt,
     this.status = 'active', // Default status is active
     this.distanceMiles,
+    this.meetingConfirmed,
+    this.meetingHappened,
   });
 
   factory Post.fromJson(Map<String, dynamic> json) {
@@ -112,10 +117,12 @@ class Post {
       expiresAt: json['expires_at'] != null ? DateTime.parse(json['expires_at']) : null,
       status: json['status'] ?? 'active', // Default to active if null
       distanceMiles: json['distance_miles'],
+      meetingConfirmed: json['meeting_confirmed'],
+      meetingHappened: json['meeting_happened'],
     );
   }
 
-  // Create a new post with updated status
+  // Create a new post with updated fields
   Post copyWith({
     String? id,
     String? userId,
@@ -125,6 +132,8 @@ class Post {
     DateTime? expiresAt,
     String? status,
     double? distanceMiles,
+    bool? meetingConfirmed,
+    bool? meetingHappened,
   }) {
     return Post(
       id: id ?? this.id,
@@ -135,6 +144,8 @@ class Post {
       expiresAt: expiresAt ?? this.expiresAt,
       status: status ?? this.status,
       distanceMiles: distanceMiles ?? this.distanceMiles,
+      meetingConfirmed: meetingConfirmed ?? this.meetingConfirmed,
+      meetingHappened: meetingHappened ?? this.meetingHappened,
     );
   }
 }

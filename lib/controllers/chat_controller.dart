@@ -425,12 +425,14 @@ Future<void> refreshPostStatus() async {
     if (currentUserId == null || _isChatEnded) return;
     
     try {
+      // Use the current user's ID instead of 'system' for the sender_id
+      // This ensures we're providing a valid UUID and not a string
       await supabase.from('messages').insert({
-        'sender_id': 'system',
-        'receiver_id': 'system',
+        'sender_id': currentUserId, // Using current user's UUID
+        'receiver_id': recipientId, // Using recipient's UUID
         'content': text,
         'created_at': DateTime.now().toUtc().toIso8601String(),
-        'is_system_message': true,
+        'is_system_message': true,  // This flag indicates it's a system message
       });
     } catch (e) {
       debugPrint("Error sending system message: $e");
@@ -789,12 +791,13 @@ Future<void> sendSystemMessage(String text) async {
   if (currentUserId == null || isChatEnded) return;
   
   try {
+    // Use valid UUIDs instead of 'system' string
     await supabase.from('messages').insert({
-      'sender_id': 'system',
-      'receiver_id': 'system',
+      'sender_id': currentUserId, // Use current user's ID
+      'receiver_id': recipientId, // Use recipient's ID
       'content': text,
       'created_at': DateTime.now().toUtc().toIso8601String(),
-      'is_system_message': true,
+      'is_system_message': true, // Mark as system message with a boolean flag
     });
   } catch (e) {
     debugPrint("Error sending system message: $e");

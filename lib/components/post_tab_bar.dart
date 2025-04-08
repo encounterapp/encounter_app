@@ -11,8 +11,8 @@ class PostsTabBar extends StatefulWidget {
 }
 
 class _PostsTabBarState extends State<PostsTabBar> {
-  // Function to fetch non-expired posts for the  user
-  Future<List<Map<String, dynamic>>> _fetchNonExpiredPosts() async {
+  // Function to fetch non-expired, active posts for the user
+  Future<List<Map<String, dynamic>>> _fetchCurrentPosts() async {
     final now = DateTime.now().toUtc(); // Get current time in UTC
     final response = await Supabase.instance.client
         .from('posts')
@@ -21,23 +21,44 @@ class _PostsTabBarState extends State<PostsTabBar> {
         .eq('user_id',
             widget.userId) // Use the userId parameter here!
         .gt('expires_at', now.toIso8601String()) // Filter by expires_at > now
+        .eq('status', 'active') // Only active posts
         .order('created_at',
-            ascending:
-                false);
+            ascending: false);
     return response;
   }
 
-  // Function to fetch expired posts for the user
-  Future<List<Map<String, dynamic>>> _fetchExpiredPosts() async {
-    final now = DateTime.now().toUtc();
+  // Function to fetch archived posts (closed posts) for the user
+  // We'll do an additional check using chat_sessions to find successful meetings
+  Future<List<Map<String, dynamic>>> _fetchArchivedPosts() async {
+    // First get all closed posts by this user
     final response = await Supabase.instance.client
         .from('posts')
-        .select('*, users:user_id(username, avatar_url)')
+        .select('*, users:user_id(username, avatar_url), closed_by')
         .eq('user_id', widget.userId)
-        .lt('expires_at', now.toIso8601String()) // Filter for expired posts
-        .order('created_at', ascending:
-                false);
-    return response;
+        .eq('status', 'closed') // Closed posts
+        .order('created_at', ascending: false);
+    
+    // Create a list to hold the filtered posts
+    List<Map<String, dynamic>> archivedPosts = [];
+    
+    // For each closed post, check if there's a successful meeting in chat_sessions
+    for (final post in response) {
+      if (post['closed_by'] != null) {
+        // Look up this chat session to see if the meeting was successful
+        final chatSession = await Supabase.instance.client
+            .from('chat_sessions')
+            .select('successful_meeting')
+            .eq('id', post['closed_by'])
+            .maybeSingle();
+            
+        // If this chat session had a successful meeting, include it in archived posts
+        if (chatSession != null && chatSession['successful_meeting'] == true) {
+          archivedPosts.add(post);
+        }
+      }
+    }
+    
+    return archivedPosts;
   }
 
   @override
@@ -48,16 +69,16 @@ class _PostsTabBarState extends State<PostsTabBar> {
         children: [
           const TabBar(
             tabs: [
-              Tab(text: "Current Post"),
+              Tab(text: "Current Posts"),
               Tab(text: "Archived Posts"),
             ],
           ),
           Expanded(
             child: TabBarView(
               children: [
-                // Current Post Tab - Now includes non-expired posts
+                // Current Posts Tab - Now includes non-expired active posts
                 FutureBuilder<List<Map<String, dynamic>>>(
-                  future: _fetchNonExpiredPosts(),
+                  future: _fetchCurrentPosts(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
@@ -148,9 +169,9 @@ class _PostsTabBarState extends State<PostsTabBar> {
                     }
                   },
                 ),
-                // Archived Posts Tab - Now displays expired posts
+                // Archived Posts Tab - Now displays closed posts with successful meetings
                 FutureBuilder<List<Map<String, dynamic>>>(
-                  future: _fetchExpiredPosts(),
+                  future: _fetchArchivedPosts(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
@@ -167,18 +188,45 @@ class _PostsTabBarState extends State<PostsTabBar> {
                         itemBuilder: (context, index) {
                           final post = snapshot.data![index];
                           final user = post['users'];
+                          
+                          // Build archived post with success indicator
                           return Container(
                             margin: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.green.shade200),
                             ),
                             child: Padding(
                               padding: const EdgeInsets.all(12),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  // Archive badge
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.shade100,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.check_circle, color: Colors.green.shade700, size: 16),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'MEETING SUCCESSFUL',
+                                          style: TextStyle(
+                                            color: Colors.green.shade700,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
                                   Row(
                                     children: [
                                       CircleAvatar(
@@ -187,7 +235,7 @@ class _PostsTabBarState extends State<PostsTabBar> {
                                             ? NetworkImage(user['avatar_url'])
                                             : const AssetImage(
                                                     'assets/default_avatar.png')
-                                                as ImageProvider, // Use a default image.
+                                                as ImageProvider,
                                       ),
                                       const SizedBox(width: 10),
                                       Expanded(
@@ -197,14 +245,14 @@ class _PostsTabBarState extends State<PostsTabBar> {
                                           children: [
                                             Text(
                                               user?['username'] ??
-                                                  'Unknown User', //Handle null username
+                                                  'Unknown User',
                                               style: const TextStyle(
                                                   fontWeight: FontWeight.bold,
                                                   fontSize: 16),
                                             ),
                                             Text(
                                               timeago.format(DateTime.parse(
-                                                  post['created_at'])), // Format the date
+                                                  post['created_at'])),
                                               style: const TextStyle(
                                                   fontSize: 12,
                                                   color: Colors.grey),
@@ -243,4 +291,3 @@ class _PostsTabBarState extends State<PostsTabBar> {
     );
   }
 }
-

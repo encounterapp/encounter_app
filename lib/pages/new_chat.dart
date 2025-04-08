@@ -226,60 +226,120 @@ void _controllerUpdated() {
     }
   }
 
-  Future<void> _handleMeetingResult(bool didMeet) async {
-    final confirmed = await _showConfirmationDialog(
-      title: didMeet ? 'Confirm Meeting Success' : 'Confirm Meeting Did Not Happen',
-      message: didMeet 
-          ? 'Are you confirming that you successfully met with ${_controller.recipientUsername ?? "this user"}?'
-          : 'Are you confirming that you did not meet with ${_controller.recipientUsername ?? "this user"}?',
-      confirmText: 'CONFIRM',
-      confirmColor: didMeet ? Colors.green : Colors.red,
-    );
+Future<void> _handleMeetingResult(bool didMeet) async {
+  final confirmed = await _showConfirmationDialog(
+    title: didMeet ? 'Confirm Meeting Success' : 'Confirm Meeting Did Not Happen',
+    message: didMeet 
+        ? 'Are you confirming that you successfully met with ${_controller.recipientUsername ?? "this user"}?'
+        : 'Are you confirming that you did not meet with ${_controller.recipientUsername ?? "this user"}?',
+    confirmText: 'CONFIRM',
+    confirmColor: didMeet ? Colors.green : Colors.red,
+  );
 
-    if (!confirmed) return;
+  if (!confirmed) return;
 
-    await _withLoadingOverlay(() async {
-      final userId = _controller.currentUserId;
-      if (userId == null) return;
+  await _withLoadingOverlay(() async {
+    final userId = _controller.currentUserId;
+    if (userId == null) return;
 
-      // Create unique key for this chat session
-      final smallerId = userId.compareTo(widget.recipientId) < 0 
-          ? userId : widget.recipientId;
-      final largerId = userId.compareTo(widget.recipientId) < 0 
-          ? widget.recipientId : userId;
-      final chatId = '${smallerId}_$largerId';
+    // Create unique key for this chat session
+    final smallerId = userId.compareTo(widget.recipientId) < 0 
+        ? userId : widget.recipientId;
+    final largerId = userId.compareTo(widget.recipientId) < 0 
+        ? widget.recipientId : userId;
+    final chatId = '${smallerId}_$largerId';
 
-      // Update the chat session with meeting result
-      await Supabase.instance.client.from('chat_sessions').update({
-        'meeting_happened': didMeet,
-        'meeting_result_reported_at': DateTime.now().toIso8601String(),
-        'meeting_result_reported_by': userId,
-      }).eq('id', chatId);
+    // Update the chat session with meeting result
+    await Supabase.instance.client.from('chat_sessions').update({
+      'meeting_happened': didMeet,
+      'meeting_result_reported_at': DateTime.now().toIso8601String(),
+      'meeting_result_reported_by': userId,
+    }).eq('id', chatId);
 
-      // Add system message about meeting result
-      final message = didMeet
-          ? "You reported that you successfully met with ${_controller.recipientUsername ?? 'the other user'}."
-          : "You reported that you did not meet with ${_controller.recipientUsername ?? 'the other user'}.";
-      
-      await _controller.sendSystemMessage(message);
+    // Get the associated post ID if it exists
+    final chatSession = await Supabase.instance.client
+        .from('chat_sessions')
+        .select('post_id')
+        .eq('id', chatId)
+        .maybeSingle();
+    
+    final String? postId = chatSession?['post_id'];
 
-      // Return to chat view
-      setState(() {
-        _showMap = false;
-        _mapToggledOff = true;
-      });
-
-      // Show success message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Meeting result recorded: ${didMeet ? "Met successfully" : "Did not meet"}'),
-            backgroundColor: didMeet ? Colors.green : Colors.orange,
-          ),
-        );
+    if (postId != null) {
+      if (didMeet) {
+        // If they met, keep the post closed
+        // Use only columns that exist in your database
+        await Supabase.instance.client.from('posts').update({
+          'status': 'closed', // Keep it closed
+          'closed_at': DateTime.now().toUtc().toIso8601String(),
+          'closed_by': chatId,
+        }).eq('id', postId);
+        
+        // Update local post status if using the controller
+        if (_controller.postStatus != null) {
+          _controller.postStatus = 'closed';
+        }
+      } else {
+        // If they did not meet, reactivate the post
+        await Supabase.instance.client.from('posts').update({
+          'status': 'active',  // Change back to active
+          'closed_at': null,   // Clear the closed timestamp
+          'closed_by': null,   // Clear the closed_by reference
+        }).eq('id', postId);
+        
+        // Update local post status if using the controller
+        if (_controller.postStatus != null) {
+          _controller.postStatus = 'active';
+        }
       }
+    }
+
+    // Store the meeting result in chat_sessions to track which posts were successful
+    if (postId != null) {
+      // Add a new field in chat_sessions to track successful meetings
+      await Supabase.instance.client.from('chat_sessions').update({
+        'successful_meeting': didMeet,
+        'post_id': postId, // Ensure post_id is still linked
+      }).eq('id', chatId);
+    }
+
+    // Add system message about meeting result
+    final message = didMeet
+        ? "You reported that you successfully met with ${_controller.recipientUsername ?? 'the other user'}. The post has been archived."
+        : "You reported that you did not meet with ${_controller.recipientUsername ?? 'the other user'}. The post has been reactivated.";
+    
+    // Instead of using system message, send a normal message with the is_system_message flag
+    try {
+      await Supabase.instance.client.from('messages').insert({
+        'sender_id': userId,  // Use the current user's ID
+        'receiver_id': widget.recipientId,  // Send to the recipient
+        'content': message,
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+        'is_system_message': true,  // Mark as a system message
+      });
+    } catch (e) {
+      debugPrint("Error sending meeting result message: $e");
+    }
+
+    // Return to chat view
+    setState(() {
+      _showMap = false;
+      _mapToggledOff = true;
     });
-  }
+
+    // Show success message
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(didMeet
+            ? 'Meeting confirmed. Post has been archived.'
+            : 'Meeting declined. Post has been reactivated.'),
+          backgroundColor: didMeet ? Colors.green : Colors.orange,
+        ),
+      );
+    }
+  });
+}
 
   Widget _buildMeetingStatusBanner() {
     if (_controller.meetingConfirmed) {
