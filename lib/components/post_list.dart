@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'dart:math';
 import 'package:encounter_app/controllers/chat_controller.dart';
+import 'package:encounter_app/pages/post_detail_page.dart'; 
 
 /// Improved user profile cache with better error handling and typing
 class UserProfileCache {
@@ -535,6 +536,15 @@ class PostCard extends StatelessWidget {
     );
   }
 
+    // Add a method to navigate to post detail page
+  void _navigateToPostDetail(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => PostDetailPage(postId: post.id),
+      ),
+    );
+  }
+
   /// Handles the action when the user wants to chat with the post author
   void _handleChat(BuildContext context, String recipientId) async {
     final currentUser = supabase.auth.currentUser;
@@ -625,93 +635,109 @@ class PostCard extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Post status indicator
-          if (post.isClosed) 
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(
-                color: Colors.red[100],
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: Colors.red)
-              ),
-              child: const Text(
-                'CLOSED',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
+    return InkWell( // Wrap with InkWell to make entire card clickable
+      onTap: () => _navigateToPostDetail(context), // Navigate to post detail page
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Post status indicator
+            if (post.isClosed) 
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: Colors.red[100],
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.red)
+                ),
+                child: const Text(
+                  'CLOSED',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
                 ),
               ),
+              
+            // User info row with avatar and username
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                FutureBuilder<Map<String, dynamic>>(
+                  future: UserProfileCache.getProfile(post.userId, supabase),
+                  builder: (context, snapshot) {
+                    // Default values
+                    String username = 'User_${post.userId.substring(0, min(4, post.userId.length))}';
+                    String? profilePic;
+                    int avatarColor = post.userId.hashCode & 0xFFFFFF;
+
+                    // If we have data, use it
+                    if (snapshot.connectionState == ConnectionState.done &&
+                        snapshot.hasData &&
+                        snapshot.data != null) {
+                      username = snapshot.data!['username'] ?? username;
+                      profilePic = snapshot.data!['avatar_url'];
+                      avatarColor = snapshot.data!['avatar_color'] ?? avatarColor;
+                    }
+
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return _buildLoadingUserInfo();
+                    }
+
+                    return _buildUserInfo(context, username, profilePic, avatarColor);
+                  },
+                ),
+                const Spacer(),
+                // Timestamp and distance info
+                _buildTimestampAndDistance(),
+              ],
             ),
             
-          // User info row with avatar and username
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              FutureBuilder<Map<String, dynamic>>(
-                future: UserProfileCache.getProfile(post.userId, supabase),
-                builder: (context, snapshot) {
-                  // Default values
-                  String username = 'User_${post.userId.substring(0, min(4, post.userId.length))}';
-                  String? profilePic;
-                  int avatarColor = post.userId.hashCode & 0xFFFFFF;
-
-                  // If we have data, use it
-                  if (snapshot.connectionState == ConnectionState.done &&
-                      snapshot.hasData &&
-                      snapshot.data != null) {
-                    username = snapshot.data!['username'] ?? username;
-                    profilePic = snapshot.data!['avatar_url'];
-                    avatarColor = snapshot.data!['avatar_color'] ?? avatarColor;
-                  }
-
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return _buildLoadingUserInfo();
-                  }
-
-                  return _buildUserInfo(context, username, profilePic, avatarColor);
-                },
-              ),
-              const Spacer(),
-              // Timestamp and distance info
-              _buildTimestampAndDistance(),
-            ],
-          ),
-          
-          const SizedBox(height: 5),
-          
-          // Post content
-          Text(
-            post.content ?? 'No content available',
-            style: const TextStyle(fontSize: 15),
-          ),
-          
-          const SizedBox(height: 10),
-          
-          // Action buttons
-          Row(
-            children: [
-              // Make button disabled when post is closed
-              IconButton(
-                icon: Image.asset("assets/icons/hand.png", 
-                  width: 45,
-                  color: post.isClosed ? Colors.grey : null, // Grey out if closed
+            const SizedBox(height: 5),
+            
+            // Post content
+            Text(
+              post.content ?? 'No content available',
+              style: const TextStyle(fontSize: 15),
+              maxLines: 3, // Limit the number of lines
+              overflow: TextOverflow.ellipsis, // Add ellipsis for long text
+            ),
+            
+            const SizedBox(height: 10),
+            
+            // Action buttons
+            Row(
+              children: [
+                // Make button disabled when post is closed
+                IconButton(
+                  icon: Image.asset("assets/icons/hand.png", 
+                    width: 45,
+                    color: post.isClosed ? Colors.grey : null, // Grey out if closed
+                  ),
+                  onPressed: post.isClosed 
+                    ? null  // Disable the button if post is closed
+                    : () => _handleChat(context, post.userId),
                 ),
-                onPressed: post.isClosed 
-                  ? null  // Disable the button if post is closed
-                  : () => _handleChat(context, post.userId),
-              ),
-            ],
-          ),
-          
-          const Divider(height: 15, thickness: 0.5),
-        ],
+                const Spacer(),
+                // Add a "View Details" button
+                TextButton.icon(
+                  onPressed: () => _navigateToPostDetail(context),
+                  icon: const Icon(Icons.arrow_forward, size: 16),
+                  label: const Text('View Details'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.blue,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ],
+            ),
+            
+            const Divider(height: 15, thickness: 0.5),
+          ],
+        ),
       ),
     );
   }
