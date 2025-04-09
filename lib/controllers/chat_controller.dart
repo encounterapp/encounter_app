@@ -834,11 +834,12 @@ class ChatController with ChangeNotifier {
       // Add system message about chat ending with appropriate message
       String systemMessage;
       if (reason == 'declined') {
-        systemMessage = 'Chat has been declined. You cannot start a new chat with this user for 24 hours.';
+        systemMessage = 'You cannot start a chat with this user for 24 hours after declining.';
+      } else if (reason == 'unsuccessful_meeting') {
+        systemMessage = 'You cannot start a chat with this user for 24 hours after reporting an unsuccessful meeting.';
       } else {
-        systemMessage = 'Chat has been ended.';
+        systemMessage = 'You cannot start a chat with this user at this time.';
       }
-      await _sendSystemMessage(systemMessage);
       
       // Call the callback if provided
       if (onChatEnded != null) {
@@ -864,18 +865,38 @@ class ChatController with ChangeNotifier {
       // Get the chat session
       final response = await Supabase.instance.client
           .from('chat_sessions')
-          .select('ended_at, ended_by')
+          .select('ended_at, ended_by, end_reason, successful_meeting')
           .eq('id', chatId)
           .maybeSingle();
       
-      if (response == null || response['ended_at'] == null) {
-        return true; // No decline record, chat is allowed
+      if (response == null) {
+        return true; // No chat record, chat is allowed
       }
       
-      // Check if 24 hours have passed since the decline
-      final declinedAt = DateTime.parse(response['ended_at']);
+      // Check if this was a successful meeting
+      final wasSuccessfulMeeting = response['successful_meeting'] == true || 
+                                response['end_reason'] == 'successful_meeting';
+      
+      // If the previous meeting was successful, allow new chat immediately
+      if (wasSuccessfulMeeting) {
+        return true;
+      }
+      
+      // Check if the end reason was 'declined' or 'unsuccessful_meeting'
+      final endReason = response['end_reason'];
+      if (endReason != 'declined' && endReason != 'unsuccessful_meeting') {
+        return true; // Other end reasons don't prevent new chats
+      }
+      
+      // For declined or unsuccessful meetings, enforce 24-hour cooldown
+      if (response['ended_at'] == null) {
+        return true; // No end timestamp, allow chat
+      }
+      
+      // Check if 24 hours have passed since the decline/unsuccessful meeting
+      final endedAt = DateTime.parse(response['ended_at']);
       final now = DateTime.now().toUtc();
-      final difference = now.difference(declinedAt);
+      final difference = now.difference(endedAt);
       
       return difference.inHours >= 24;
     } catch (e) {

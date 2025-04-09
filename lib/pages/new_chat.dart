@@ -319,6 +319,7 @@ Future<void> _handleMeetingResult(bool didMeet) async {
         'meeting_result_reported_at': DateTime.now().toIso8601String(),
         'meeting_result_reported_by': userId,
         'successful_meeting': didMeet,
+        'end_reason': didMeet ? 'successful_meeting' : 'unsuccessful_meeting',
       }).eq('id', chatId);
       
       // Add another message indicating chat has ended
