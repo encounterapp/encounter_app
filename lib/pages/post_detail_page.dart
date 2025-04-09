@@ -4,6 +4,7 @@ import 'package:encounter_app/pages/new_chat.dart';
 import 'package:encounter_app/pages/home_page.dart';
 import 'package:encounter_app/controllers/chat_controller.dart';
 import 'package:encounter_app/utils/distance_utils.dart';
+import 'package:encounter_app/utils/post_manager.dart'; // Import PostManager
 import 'package:intl/intl.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
@@ -216,6 +217,57 @@ class _PostDetailPageState extends State<PostDetailPage> {
     );
   }
 
+  // New method to handle post deletion
+  Future<void> _handleDeletePost() async {
+    if (_post == null) return;
+    
+    // Check if post has active chat sessions
+    final hasActiveSessions = await PostManager.hasActiveChatSessions(widget.postId);
+
+    // Show confirmation dialog
+    final confirmDelete = await PostManager.showDeleteConfirmation(
+      context,
+      hasActiveSessions: hasActiveSessions,
+    );
+
+    if (!confirmDelete) return;
+
+    // Show loading indicator
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Deleting post...'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+
+    // Attempt to delete the post
+    final success = await PostManager.deletePost(widget.postId);
+
+    if (context.mounted) {
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Post deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Navigate back to home
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => const HomePage(selectedIndex: 0),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to delete post'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   String _formatDate(String dateString) {
     try {
       final DateTime date = DateTime.parse(dateString);
@@ -283,11 +335,20 @@ class _PostDetailPageState extends State<PostDetailPage> {
     
     // Post status badges
     final bool isClosed = _post!['status'] == 'closed';
+    final bool isArchived = _post!['status'] == 'archived';
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Post Details'),
         actions: [
+          // Add delete button for post owner
+          if (_isAuthor)
+            IconButton(
+              icon: const Icon(Icons.delete),
+              color: Colors.red,
+              onPressed: _handleDeletePost,
+              tooltip: 'Delete Post',
+            ),
           IconButton(
             icon: const Icon(Icons.home),
             onPressed: () {
@@ -410,7 +471,25 @@ class _PostDetailPageState extends State<PostDetailPage> {
                       ),
                     ),
                     
-                  if (!isExpired && !isClosed)
+                  if (isArchived)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[100],
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.blue),
+                      ),
+                      child: const Text(
+                        'ARCHIVED',
+                        style: TextStyle(
+                          color: Colors.blue,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    
+                  if (!isExpired && !isClosed && !isArchived)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
@@ -503,6 +582,14 @@ class _PostDetailPageState extends State<PostDetailPage> {
                           Icons.check_circle,
                           Colors.green,
                         ),
+                        
+                      if (_post!['archived_at'] != null)
+                        _buildTimelineItem(
+                          'Archived',
+                          _formatDate(_post!['archived_at']),
+                          Icons.archive,
+                          Colors.blue,
+                        ),
                     ],
                   ),
                 ),
@@ -514,14 +601,21 @@ class _PostDetailPageState extends State<PostDetailPage> {
         ),
       ),
       // Only show the chat button if user is not the author and post is active
-      floatingActionButton: (!_isAuthor && !isClosed && !isExpired) 
+      floatingActionButton: (!_isAuthor && !isClosed && !isExpired && !isArchived) 
         ? FloatingActionButton.extended(
             onPressed: _handleChat,
             icon: Image.asset("assets/icons/hand.png", width: 30),
             label: const Text('Chat'),
             backgroundColor: Colors.blue,
           )
-        : null,
+        : _isAuthor && !isClosed && !isExpired && !isArchived
+          ? FloatingActionButton.extended(
+              onPressed: _handleDeletePost,
+              icon: const Icon(Icons.delete),
+              label: const Text('Delete Post'),
+              backgroundColor: Colors.red,
+            )
+          : null,
     );
   }
   

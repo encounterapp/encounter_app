@@ -9,6 +9,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:encounter_app/controllers/chat_controller.dart';
 import 'package:encounter_app/pages/post_detail_page.dart'; 
+import 'package:encounter_app/utils/post_manager.dart';
 
 /// Improved user profile cache with better error handling and typing
 class UserProfileCache {
@@ -365,6 +366,20 @@ class PostListController {
     _postsStreamSubscription?.cancel();
     _postsController.close();
   }
+
+    // Existing code with new method to refresh after deletion
+  Future<void> refreshAfterDeletion() async {
+    _isLoading = true;
+    notifyListeners();
+    await _loadFilterPreferences();
+    _loadPosts();
+  }
+  
+  // Add this method to notify UI changes
+  void notifyListeners() {
+    _postsController.add([]);
+  }
+
 }
 
 /// Displays a list of posts, optionally filtered by user ID.
@@ -389,6 +404,19 @@ class _PostListState extends State<PostList> with AutomaticKeepAliveClientMixin 
       supabase: Supabase.instance.client,
       userId: widget.userId,
     );
+        // Archive expired posts on initialization
+    _archiveExpiredPosts();
+  }
+
+    Future<void> _archiveExpiredPosts() async {
+    // Only run this for current user's posts (not when viewing others)
+    if (_controller.isUserSpecific) {
+      final archivedCount = await PostManager.archiveAllExpiredPosts();
+      if (archivedCount > 0) {
+        // If we archived posts, refresh the list
+        _controller.refresh();
+      }
+    }
   }
 
   @override
@@ -397,7 +425,7 @@ class _PostListState extends State<PostList> with AutomaticKeepAliveClientMixin 
     super.dispose();
   }
 
-  @override
+ @override
   Widget build(BuildContext context) {
     super.build(context);
     
@@ -444,6 +472,10 @@ class _PostListState extends State<PostList> with AutomaticKeepAliveClientMixin 
                     key: ValueKey(post.id),
                     post: post,
                     supabase: Supabase.instance.client,
+                    isCurrentUser: widget.userId == Supabase.instance.client.auth.currentUser?.id,
+                    onPostDeleted: () {
+                      _controller.refreshAfterDeletion();
+                    },
                   );
                 },
               ),
@@ -520,12 +552,66 @@ class _PostListState extends State<PostList> with AutomaticKeepAliveClientMixin 
 class PostCard extends StatelessWidget {
   final Post post;
   final SupabaseClient supabase;
+  final bool isCurrentUser;
+  final VoidCallback onPostDeleted;
 
   const PostCard({
     super.key,
     required this.post,
     required this.supabase,
+    required this.isCurrentUser,
+    required this.onPostDeleted,
   });
+
+  /// Handles the action when user wants to delete their post
+  Future<void> _handleDeletePost(BuildContext context) async {
+    final currentUser = supabase.auth.currentUser;
+    if (currentUser == null || currentUser.id != post.userId) {
+      return; // Not the post owner
+    }
+
+    // Check if post has active chat sessions
+    final hasActiveSessions = await PostManager.hasActiveChatSessions(post.id);
+
+    // Show confirmation dialog
+    final confirmDelete = await PostManager.showDeleteConfirmation(
+      context,
+      hasActiveSessions: hasActiveSessions,
+    );
+
+    if (!confirmDelete) return;
+
+    // Show loading indicator
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Deleting post...'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+
+    // Attempt to delete the post
+    final success = await PostManager.deletePost(post.id);
+
+    if (context.mounted) {
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Post deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Call the callback to refresh the list
+        onPostDeleted();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to delete post'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   /// Navigates to the profile page of the user who created the post
   void _navigateToProfile(BuildContext context, String userId) {
@@ -628,7 +714,7 @@ class PostCard extends StatelessWidget {
     }
   }
 
-  @override
+   @override
   Widget build(BuildContext context) {
     // Check if the post is expired, though this should be filtered earlier
     if (post.isExpired) {
@@ -717,11 +803,21 @@ class PostCard extends StatelessWidget {
                     width: 45,
                     color: post.isClosed ? Colors.grey : null, // Grey out if closed
                   ),
-                  onPressed: post.isClosed 
-                    ? null  // Disable the button if post is closed
+                  onPressed: post.isClosed || post.userId == supabase.auth.currentUser?.id
+                    ? null  // Disable for closed posts or own posts
                     : () => _handleChat(context, post.userId),
                 ),
+                
+                // Delete button - only visible to the post owner and for active posts
+                if (isCurrentUser && !post.isClosed)
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () => _handleDeletePost(context),
+                    tooltip: 'Delete Post',
+                  ),
+                
                 const Spacer(),
+                
                 // Add a "View Details" button
                 TextButton.icon(
                   onPressed: () => _navigateToPostDetail(context),
