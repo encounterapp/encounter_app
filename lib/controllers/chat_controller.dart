@@ -326,25 +326,27 @@ class ChatController with ChangeNotifier {
   }
   
   // Check if chat has been ended
-  Future<void> _checkIfChatIsEnded() async {
-    if (_currentUserId == null) return;
+Future<void> _checkIfChatIsEnded() async {
+  if (_currentUserId == null) return;
+  
+  try {
+    // Use the new chat ID format
+    final String chatId = _generateChatId();
     
-    try {
-      final response = await supabase
-          .from('chat_sessions')
-          .select('status')
-          .or('and(user1_id.eq.$_currentUserId,user2_id.eq.$recipientId),and(user1_id.eq.$recipientId,user2_id.eq.$_currentUserId)')
-          .limit(1)
-          .maybeSingle();
+    final response = await supabase
+        .from('chat_sessions')
+        .select('status')
+        .eq('id', chatId)
+        .maybeSingle();
 
-      if (response != null && response['status'] == 'ended') {
-        _state = _state.copyWith(isChatEnded: true);
-        notifyListeners();
-      }
-    } catch (e) {
-      debugPrint("Error checking if chat is ended: $e");
+    if (response != null && response['status'] == 'ended') {
+      _state = _state.copyWith(isChatEnded: true);
+      notifyListeners();
     }
+  } catch (e) {
+    debugPrint("Error checking if chat is ended: $e");
   }
+}
   
   // Fetch recipient profile info
   Future<void> _fetchUserProfile() async {
@@ -381,7 +383,7 @@ class ChatController with ChangeNotifier {
         
     // If postId is provided, include it in the chat ID
     if (postId != null) {
-      return '${smallerId}_${largerId}';
+      return '${smallerId}_${largerId}_${postId}';
     }
     
     return '${smallerId}_${largerId}';
@@ -479,86 +481,87 @@ class ChatController with ChangeNotifier {
   }
   
   // Set up chat status listener
-  void _setupChatStatusListener() {
-    if (_currentUserId == null) return;
-    
-    final String channelName = 'chat_status_${_currentUserId}_$recipientId';
-    
-    _chatStatusChannel = supabase
-        .channel(channelName)
-        .onPostgresChanges(
-          event: PostgresChangeEvent.update,
-          schema: 'public',
-          table: 'chat_sessions',
-          callback: (payload) {
-            final Map<String, dynamic> newRecord = payload.newRecord;
-            final String user1Id = newRecord['user1_id'];
-            final String user2Id = newRecord['user2_id'];
-            
-            if ((user1Id == _currentUserId && user2Id == recipientId) ||
-                (user1Id == recipientId && user2Id == _currentUserId)) {
-              
-              if (newRecord['status'] == 'ended') {
-                _state = _state.copyWith(isChatEnded: true);
-                notifyListeners();
-              }
-            }
-          },
-        )
-        .subscribe();
-  }
+void _setupChatStatusListener() {
+  if (_currentUserId == null) return;
   
-  // Set up meeting status listener
-  void _setupMeetingStatusListener() {
-    if (_currentUserId == null) return;
-    
-    final String channelName = 'meeting_status_${_currentUserId}_$recipientId';
-    
-    supabase
-        .channel(channelName)
-        .onPostgresChanges(
-          event: PostgresChangeEvent.update,
-          schema: 'public',
-          table: 'chat_sessions',
-          callback: (payload) {
-            final Map<String, dynamic> newRecord = payload.newRecord;
-            final String user1Id = newRecord['user1_id'];
-            final String user2Id = newRecord['user2_id'];
-            
-            if ((user1Id == _currentUserId && user2Id == recipientId) ||
-                (user1Id == recipientId && user2Id == _currentUserId)) {
-              
-              // Create unique key for this chat session to determine user order
-              final smallerId = _currentUserId!.compareTo(recipientId) < 0 
-                  ? _currentUserId 
-                  : recipientId;
-                  
-              // Determine if current user is user1 or user2
-              final isUser1 = _currentUserId == smallerId;
-              
-              // Update meeting state
-              final user1Requested = newRecord['user1_meeting_requested'] ?? false;
-              final user2Requested = newRecord['user2_meeting_requested'] ?? false;
-              final meetingConfirmed = newRecord['meeting_confirmed'] ?? false;
-              
-              _state = _state.copyWith(
-                currentUserRequestedMeeting: isUser1 ? user1Requested : user2Requested,
-                recipientRequestedMeeting: isUser1 ? user2Requested : user1Requested,
-                meetingConfirmed: meetingConfirmed,
-              );
-              
-              // If meeting was just confirmed, send a system message
-              if (meetingConfirmed && !_state.isChatEnded) {
-                _sendSystemMessage("You both have accepted to meet.");
-              }
-              
-              notifyListeners();
-            }
-          },
-        )
-        .subscribe();
-  }
+  final String chatId = _generateChatId();
+  final String channelName = 'chat_status_$chatId';
   
+  _chatStatusChannel = supabase
+      .channel(channelName)
+      .onPostgresChanges(
+        event: PostgresChangeEvent.update,
+        schema: 'public',
+        table: 'chat_sessions',
+        filter: PostgresChangeFilter(
+          type: PostgresChangeFilterType.eq,
+          column: 'id',
+          value: chatId,
+        ),
+        callback: (payload) {
+          final Map<String, dynamic> newRecord = payload.newRecord;
+          
+          if (newRecord['status'] == 'ended') {
+            _state = _state.copyWith(isChatEnded: true);
+            notifyListeners();
+          }
+        },
+      )
+      .subscribe();
+}
+
+// Set up meeting status listener
+void _setupMeetingStatusListener() {
+  if (_currentUserId == null) return;
+  
+  final String chatId = _generateChatId();
+  final String channelName = 'meeting_status_$chatId';
+  
+  supabase
+      .channel(channelName)
+      .onPostgresChanges(
+        event: PostgresChangeEvent.update,
+        schema: 'public',
+        table: 'chat_sessions',
+        filter: PostgresChangeFilter(
+          type: PostgresChangeFilterType.eq,
+          column: 'id',
+          value: chatId,
+        ),
+        callback: (payload) {
+          final Map<String, dynamic> newRecord = payload.newRecord;
+          
+          // Parse the chat ID to determine user order
+          final parts = chatId.split('_');
+          if (parts.length >= 2) { // We now have at least 3 parts with post ID
+            final smallerId = parts[0];
+            
+            // Determine if current user is user1 or user2
+            final isUser1 = _currentUserId == smallerId;
+            
+            // Update meeting state
+            final user1Requested = newRecord['user1_meeting_requested'] ?? false;
+            final user2Requested = newRecord['user2_meeting_requested'] ?? false;
+            final meetingConfirmed = newRecord['meeting_confirmed'] ?? false;
+            
+            _state = _state.copyWith(
+              currentUserRequestedMeeting: isUser1 ? user1Requested : user2Requested,
+              recipientRequestedMeeting: isUser1 ? user2Requested : user1Requested,
+              meetingConfirmed: meetingConfirmed,
+            );
+            
+            // If meeting was just confirmed, send a system message
+            if (meetingConfirmed && !_state.meetingConfirmed && !_state.isChatEnded) {
+              _sendSystemMessage("You both have accepted to meet.");
+            }
+            
+            notifyListeners();
+          }
+        },
+      )
+      .subscribe();
+}
+
   // Send a message
   Future<void> sendMessage(String text) async {
     if (!_state.isInitialized || _currentUserId == null || _state.isChatEnded || text.trim().isEmpty) {
@@ -577,6 +580,7 @@ class ChatController with ChangeNotifier {
       'sender_id': _currentUserId,
       'receiver_id': recipientId,
       'chat_session_id': chatId,
+      'post_id': postId,
       'content': text,
       'created_at': DateTime.now().toUtc().toIso8601String(),
     };
@@ -589,13 +593,19 @@ class ChatController with ChangeNotifier {
 
     try {
       // Send message to backend
-      await supabase.from('messages').insert({
-        'sender_id': newMessage['sender_id'],
-        'receiver_id': newMessage['receiver_id'],
-        'chat_session_id': chatId,
-        'content': newMessage['content'],
-        'created_at': newMessage['created_at'],
-      });
+    final Map<String, dynamic> messageData = {
+      'sender_id': newMessage['sender_id'],
+      'receiver_id': newMessage['receiver_id'],
+      'chat_session_id': chatId,
+      'content': newMessage['content'],
+      'created_at': newMessage['created_at'],
+    };
+          // Add post ID if available
+    if (postId != null) {
+      messageData['post_id'] = postId;
+    }
+    
+    await supabase.from('messages').insert(messageData);
     } catch (e) {
       debugPrint("Error sending message: $e");
       // Revert optimistic update on error
@@ -924,7 +934,7 @@ class ChatController with ChangeNotifier {
           : currentUser.id;
       
       // Generate a unique chat ID that includes the post ID
-      final chatId = '${smallerId}_${largerId}';
+      final chatId = '${smallerId}_${largerId}_${postId}';
       
       // Check if this chat session already exists
       final existingChat = await Supabase.instance.client
