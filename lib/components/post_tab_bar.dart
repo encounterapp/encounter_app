@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timeago/timeago.dart' as timeago; // Import timeago
+import 'package:encounter_app/pages/post_detail_page.dart'; // Import the post detail page
 
 class PostsTabBar extends StatefulWidget {
   final String userId; // Add the userId as a parameter
@@ -61,6 +62,14 @@ class _PostsTabBarState extends State<PostsTabBar> {
     return archivedPosts;
   }
 
+  // Navigate to post detail page
+  void _navigateToPostDetail(BuildContext context, String postId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => PostDetailPage(postId: postId)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -98,69 +107,77 @@ class _PostsTabBarState extends State<PostsTabBar> {
                           final user =
                               post['users']; // Access the joined user data.
                           // Customize how each post is displayed
-                          return Container(
-                            margin: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 20,
-                                        backgroundImage: user?['avatar_url'] != null
-                                            ? NetworkImage(user['avatar_url'])
-                                            : const AssetImage(
-                                                    'assets/default_avatar.png')
-                                                as ImageProvider, // Use a default image.
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              user?['username'] ??
-                                                  'Unknown User', //Handle null username
-                                              style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 16),
-                                            ),
-                                            Text(
-                                              timeago.format(DateTime.parse(
-                                                  post['created_at'])), // Format the date
-                                              style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.grey),
-                                            ),
-                                          ],
+                          return InkWell(
+                            // Make the entire post card tappable
+                            onTap: () => _navigateToPostDetail(context, post['id']),
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 20,
+                                          backgroundImage: user?['avatar_url'] != null
+                                              ? NetworkImage(user['avatar_url'])
+                                              : const AssetImage(
+                                                      'assets/default_avatar.png')
+                                                  as ImageProvider, // Use a default image.
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    post['title'] ??
-                                        'No Title', //Make sure to handle null title
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 18),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    post['content'] ??
-                                        'No Description', //Handle null description.
-                                    style: const TextStyle(fontSize: 16),
-                                  ),
-                                  // Add more post details here as needed
-                                ],
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                user?['username'] ??
+                                                    'Unknown User', //Handle null username
+                                                style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 16),
+                                              ),
+                                              Text(
+                                                timeago.format(DateTime.parse(
+                                                    post['created_at'])), // Format the date
+                                                style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.grey),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        // Add a view details icon
+                                        const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey)
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      post['title'] ??
+                                          'No Title', //Make sure to handle null title
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 18),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      post['content'] ??
+                                          'No Description', //Handle null description.
+                                      style: const TextStyle(fontSize: 16),
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    // Add more post details here as needed
+                                  ],
+                                ),
                               ),
                             ),
                           );
@@ -189,92 +206,99 @@ class _PostsTabBarState extends State<PostsTabBar> {
                           final post = snapshot.data![index];
                           final user = post['users'];
                           
-                          // Build archived post with success indicator
-                          return Container(
-                            margin: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.green.shade200),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Archive badge
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green.shade100,
-                                      borderRadius: BorderRadius.circular(4),
+                          // Build archived post with success indicator and tap to view details
+                          return InkWell(
+                            onTap: () => _navigateToPostDetail(context, post['id']),
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.green.shade200),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Archive badge
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green.shade100,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.check_circle, color: Colors.green.shade700, size: 16),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'MEETING SUCCESSFUL',
+                                            style: TextStyle(
+                                              color: Colors.green.shade700,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
+                                    const SizedBox(height: 10),
+                                    Row(
                                       children: [
-                                        Icon(Icons.check_circle, color: Colors.green.shade700, size: 16),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          'MEETING SUCCESSFUL',
-                                          style: TextStyle(
-                                            color: Colors.green.shade700,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
+                                        CircleAvatar(
+                                          radius: 20,
+                                          backgroundImage: user?['avatar_url'] != null
+                                              ? NetworkImage(user['avatar_url'])
+                                              : const AssetImage(
+                                                      'assets/default_avatar.png')
+                                                  as ImageProvider,
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                user?['username'] ??
+                                                    'Unknown User',
+                                                style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 16),
+                                              ),
+                                              Text(
+                                                timeago.format(DateTime.parse(
+                                                    post['created_at'])),
+                                                style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.grey),
+                                              ),
+                                            ],
                                           ),
                                         ),
+                                        // Add a view details icon
+                                        const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey)
                                       ],
                                     ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Row(
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 20,
-                                        backgroundImage: user?['avatar_url'] != null
-                                            ? NetworkImage(user['avatar_url'])
-                                            : const AssetImage(
-                                                    'assets/default_avatar.png')
-                                                as ImageProvider,
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              user?['username'] ??
-                                                  'Unknown User',
-                                              style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 16),
-                                            ),
-                                            Text(
-                                              timeago.format(DateTime.parse(
-                                                  post['created_at'])),
-                                              style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.grey),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    post['title'] ?? 'No Title',
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 18),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    post['content'] ?? 'No Description',
-                                    style: const TextStyle(fontSize: 16),
-                                  ),
-                                ],
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      post['title'] ?? 'No Title',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 18),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      post['content'] ?? 'No Description',
+                                      style: const TextStyle(fontSize: 16),
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           );
