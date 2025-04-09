@@ -381,7 +381,7 @@ class ChatController with ChangeNotifier {
         
     // If postId is provided, include it in the chat ID
     if (postId != null) {
-      return '${smallerId}_${largerId}_${postId}';
+      return '${smallerId}_${largerId}';
     }
     
     return '${smallerId}_${largerId}';
@@ -903,7 +903,7 @@ class ChatController with ChangeNotifier {
           : currentUser.id;
       
       // Generate a unique chat ID that includes the post ID
-      final chatId = '${smallerId}_${largerId}_${postId}';
+      final chatId = '${smallerId}_${largerId}';
       
       // Check if this chat session already exists
       final existingChat = await Supabase.instance.client
@@ -925,16 +925,15 @@ class ChatController with ChangeNotifier {
               'created_at': DateTime.now().toUtc().toIso8601String(),
             });
             
-        // Add a system message
-        await Supabase.instance.client.from('messages').insert({
-          'sender_id': currentUser.id,
-          'receiver_id': recipientId,
-          'chat_session_id': chatId,
-          'content': "Chat started about this post.",
-          'created_at': DateTime.now().toUtc().toIso8601String(),
-          'is_system_message': true,
-        });
+    } else {
+      // Update existing chat with post_id if needed
+      if (existingChat['post_id'] == null) {
+        await Supabase.instance.client
+            .from('chat_sessions')
+            .update({'post_id': postId})
+            .eq('id', chatId);
       }
+    }
       
       return chatId;
     } catch (e) {
