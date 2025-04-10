@@ -250,16 +250,10 @@ class PostListController {
         }
       }).toList();
       
-      // Filter out posts based on status for main feed vs. user profile
+      // Filter out closed posts from main feed, but show them on user profiles
       if (_userId == null) {
-        // For main feed, show only active posts
         filteredData = filteredData.where((post) => 
           post['status'] == null || post['status'] == 'active'
-        ).toList();
-      } else {
-        // For user profile, show all posts except deleted ones
-        filteredData = filteredData.where((post) => 
-          post['status'] != 'deleted'
         ).toList();
       }
       
@@ -329,16 +323,10 @@ class PostListController {
         }
       }).toList();
       
-      // Filter posts based on status
+      // Filter out closed posts from main feed, but show them on user profiles
       if (_userId == null) {
-        // For main feed, show only active posts
         filteredPosts = filteredPosts.where((post) => 
           post['status'] == null || post['status'] == 'active'
-        ).toList();
-      } else {
-        // For user profile, show all posts except deleted ones
-        filteredPosts = filteredPosts.where((post) => 
-          post['status'] != 'deleted'
         ).toList();
       }
       
@@ -379,7 +367,7 @@ class PostListController {
     _postsController.close();
   }
 
-  // Existing code with new method to refresh after deletion
+    // Existing code with new method to refresh after deletion
   Future<void> refreshAfterDeletion() async {
     _isLoading = true;
     notifyListeners();
@@ -391,6 +379,7 @@ class PostListController {
   void notifyListeners() {
     _postsController.add([]);
   }
+
 }
 
 /// Displays a list of posts, optionally filtered by user ID.
@@ -576,35 +565,38 @@ class PostCard extends StatelessWidget {
 
   /// Handles the action when user wants to delete their post
   Future<void> _handleDeletePost(BuildContext context) async {
-    final currentUser = supabase.auth.currentUser;
-    if (currentUser == null || currentUser.id != post.userId) {
-      return; // Not the post owner
-    }
+  final currentUser = supabase.auth.currentUser;
+  if (currentUser == null || currentUser.id != post.userId) {
+    return; // Not the post owner
+  }
 
-    // Check if post has active chat sessions
-    final hasActiveSessions = await PostManager.hasActiveChatSessions(post.id);
+  // Check if post has active chat sessions
+  final hasActiveSessions = await PostManager.hasActiveChatSessions(post.id);
 
-    // Show confirmation dialog
-    final confirmDelete = await PostManager.showDeleteConfirmation(
-      context,
-      hasActiveSessions: hasActiveSessions,
-    );
+  // Show confirmation dialog
+  final confirmDelete = await PostManager.showDeleteConfirmation(
+    context,
+    hasActiveSessions: hasActiveSessions,
+  );
 
-    if (!confirmDelete) return;
+  if (!confirmDelete) return;
 
-    // Show loading indicator
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Deleting post...'),
-        duration: Duration(seconds: 1),
-      ),
-    );
+  // Show loading indicator
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Deleting post...'),
+      duration: Duration(seconds: 1),
+    ),
+  );
 
-    // Attempt to delete the post
-    final success = await PostManager.deletePost(post.id);
-
+  // Use the updated deletePost method which returns a Map<String, dynamic>
+  Map<String, dynamic> result;
+  
+  try {
+    result = await PostManager.deletePost(post.id);
+    
     if (context.mounted) {
-      if (success) {
+      if (result['success'] == true) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Post deleted successfully'),
@@ -614,15 +606,109 @@ class PostCard extends StatelessWidget {
         // Call the callback to refresh the list
         onPostDeleted();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to delete post'),
-            backgroundColor: Colors.red,
+        // Show error dialog
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.red),
+                SizedBox(width: 10),
+                Text('Failed to Delete Post'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('There was a problem deleting your post.'),
+                if (result.containsKey('error') && result['error'] != null) ...[
+                  SizedBox(height: 8),
+                  Text(
+                    'Error: ${result['error']}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: Colors.red[700],
+                    ),
+                  ),
+                ],
+                SizedBox(height: 16),
+                Text('Would you like to try again?'),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text('CANCEL'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _handleDeletePost(context); // Retry deletion
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                ),
+                child: Text('TRY AGAIN'),
+              ),
+            ],
           ),
         );
       }
     }
+  } catch (e) {
+    if (context.mounted) {
+      // Show error dialog for exception
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.red),
+              SizedBox(width: 10),
+              Text('Failed to Delete Post'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('There was a problem deleting your post.'),
+              SizedBox(height: 8),
+              Text(
+                'Error: ${e.toString()}',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: Colors.red[700],
+                ),
+              ),
+              SizedBox(height: 16),
+              Text('Would you like to try again?'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('CANCEL'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _handleDeletePost(context); // Retry deletion
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+              ),
+              child: Text('TRY AGAIN'),
+            ),
+          ],
+        ),
+      );
+    }
   }
+}
 
   /// Navigates to the profile page of the user who created the post
   void _navigateToProfile(BuildContext context, String userId) {

@@ -219,55 +219,100 @@ class _PostDetailPageState extends State<PostDetailPage> {
   }
 
   // New method to handle post deletion
-  Future<void> _handleDeletePost() async {
-    if (_post == null) return;
-    
-    // Check if post has active chat sessions
-    final hasActiveSessions = await PostManager.hasActiveChatSessions(widget.postId);
+  // For PostDetailPage class in lib/pages/post_detail_page.dart
+Future<void> _handleDeletePost() async {
+  // Use widget.postId instead of post.id
+  final String postId = widget.postId;
+  
+  // Check if post has active chat sessions
+  final hasActiveSessions = await PostManager.hasActiveChatSessions(postId);
 
-    // Show confirmation dialog
-    final confirmDelete = await PostManager.showDeleteConfirmation(
-      context,
-      hasActiveSessions: hasActiveSessions,
-    );
+  // Show confirmation dialog
+  final confirmDelete = await PostManager.showDeleteConfirmation(
+    context,
+    hasActiveSessions: hasActiveSessions,
+  );
 
-    if (!confirmDelete) return;
+  if (!confirmDelete) return;
 
-    // Show loading indicator
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Deleting post...'),
-        duration: Duration(seconds: 1),
-      ),
-    );
+  // Show loading indicator
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Deleting post...'),
+      duration: Duration(seconds: 1),
+    ),
+  );
 
-    // Attempt to delete the post
-    final success = await PostManager.deletePost(widget.postId);
+  // Attempt to delete the post
+  final result = await PostManager.deletePost(postId);
 
-    if (context.mounted) {
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Post deleted successfully'),
-            backgroundColor: Colors.green,
+  if (context.mounted) {
+    if (result['success']) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Post deleted successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      
+      // Navigate back to home instead of using onPostDeleted
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => const HomePage(selectedIndex: 0),
+        ),
+      );
+    } else {
+      // Enhanced error dialog with retry option
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.red),
+              SizedBox(width: 10),
+              Text('Failed to Delete Post'),
+            ],
           ),
-        );
-        // Navigate back to home
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => const HomePage(selectedIndex: 0),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('There was a problem deleting your post.'),
+              SizedBox(height: 8),
+              if (result['error'] != null)
+                Text(
+                  'Error: ${result['error']}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: Colors.red[700],
+                  ),
+                ),
+              SizedBox(height: 16),
+              Text('Would you like to try again?'),
+            ],
           ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to delete post'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('CANCEL'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _handleDeletePost(); // Retry deletion
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+              ),
+              child: Text('TRY AGAIN'),
+            ),
+          ],
+        ),
+      );
     }
   }
+}
 
   String _formatDate(String dateString) {
     try {

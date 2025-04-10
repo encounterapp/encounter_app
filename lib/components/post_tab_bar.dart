@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:encounter_app/pages/post_detail_page.dart';
 import 'package:encounter_app/utils/post_manager.dart';
+import 'package:encounter_app/pages/home_page.dart';
 
 class PostsTabBar extends StatefulWidget {
   final String userId;
@@ -139,31 +140,34 @@ class _PostsTabBarState extends State<PostsTabBar> {
   }
   
   // Delete a post after confirmation
-  Future<void> _handleDeletePost(BuildContext context, String postId, bool isActive) async {
-    // Check if post has active chat sessions
-    final hasActiveSessions = await PostManager.hasActiveChatSessions(postId);
+ Future<void> _handleDeletePost(BuildContext context, String postId, bool isActive) async {
+  // Check if post has active chat sessions
+  final hasActiveSessions = await PostManager.hasActiveChatSessions(postId);
 
-    // Show confirmation dialog
-    final confirmDelete = await PostManager.showDeleteConfirmation(
-      context,
-      hasActiveSessions: hasActiveSessions,
-    );
+  // Show confirmation dialog
+  final confirmDelete = await PostManager.showDeleteConfirmation(
+    context,
+    hasActiveSessions: hasActiveSessions,
+  );
 
-    if (!confirmDelete) return;
+  if (!confirmDelete) return;
 
-    // Show loading indicator
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Deleting post...'),
-        duration: Duration(seconds: 1),
-      ),
-    );
+  // Show loading indicator
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Deleting post...'),
+      duration: Duration(seconds: 1),
+    ),
+  );
 
-    // Attempt to delete the post
-    final success = await PostManager.deletePost(postId);
-
+  // Use the updated deletePost method which returns a Map<String, dynamic>
+  Map<String, dynamic> result;
+  
+  try {
+    result = await PostManager.deletePost(postId);
+    
     if (context.mounted) {
-      if (success) {
+      if (result['success'] == true) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Post deleted successfully'),
@@ -179,15 +183,109 @@ class _PostsTabBarState extends State<PostsTabBar> {
           }
         });
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to delete post'),
-            backgroundColor: Colors.red,
+        // Show error dialog
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.red),
+                SizedBox(width: 10),
+                Text('Failed to Delete Post'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('There was a problem deleting your post.'),
+                if (result.containsKey('error') && result['error'] != null) ...[
+                  SizedBox(height: 8),
+                  Text(
+                    'Error: ${result['error']}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: Colors.red[700],
+                    ),
+                  ),
+                ],
+                SizedBox(height: 16),
+                Text('Would you like to try again?'),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text('CANCEL'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _handleDeletePost(context, postId, isActive); // Retry deletion
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                ),
+                child: Text('TRY AGAIN'),
+              ),
+            ],
           ),
         );
       }
     }
+  } catch (e) {
+    if (context.mounted) {
+      // Show error dialog for exception
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.red),
+              SizedBox(width: 10),
+              Text('Failed to Delete Post'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('There was a problem deleting your post.'),
+              SizedBox(height: 8),
+              Text(
+                'Error: ${e.toString()}',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: Colors.red[700],
+                ),
+              ),
+              SizedBox(height: 16),
+              Text('Would you like to try again?'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('CANCEL'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _handleDeletePost(context, postId, isActive); // Retry deletion
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+              ),
+              child: Text('TRY AGAIN'),
+            ),
+          ],
+        ),
+      );
+    }
   }
+}
 
   @override
   Widget build(BuildContext context) {

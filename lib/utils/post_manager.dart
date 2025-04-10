@@ -164,41 +164,44 @@ class PostManager {
 
   /// Delete a post by its ID
   /// Returns true if deletion was successful
-  static Future<bool> deletePost(String postId) async {
-    try {
-      // First check if the user is the owner of the post
-      final user = supabase.auth.currentUser;
-      if (user == null) return false;
+// In lib/utils/post_manager.dart
+static Future<Map<String, dynamic>> deletePost(String postId) async {
+  try {
+    // First check if the user is the owner of the post
+    final user = supabase.auth.currentUser;
+    if (user == null) return {'success': false, 'error': 'User not logged in'};
 
-      final post = await supabase
-          .from('posts')
-          .select()
-          .eq('id', postId)
-          .eq('user_id', user.id)
-          .maybeSingle();
+    final post = await supabase
+        .from('posts')
+        .select()
+        .eq('id', postId)
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-      if (post == null) {
-        debugPrint('Post not found or user does not own this post');
-        return false;
-      }
-
-      // End any related chat sessions
-      await _endRelatedChatSessions(postId);
-
-      // Instead of deleting the post, mark it as deleted
-      // This ensures it still counts toward monthly limits
-      await supabase.from('posts').update({
-        'status': 'deleted',
-        'deleted_at': DateTime.now().toIso8601String(),
-        'deleted_by': user.id,
-      }).eq('id', postId);
-      
-      return true;
-    } catch (e) {
-      debugPrint('Error deleting post: $e');
-      return false;
+    if (post == null) {
+      return {
+        'success': false, 
+        'error': 'Post not found or you do not have permission to delete it'
+      };
     }
+
+    // End any related chat sessions
+    await _endRelatedChatSessions(postId);
+
+    // Instead of deleting the post, mark it as deleted
+    // This ensures it still counts toward monthly limits
+    await supabase.from('posts').update({
+      'status': 'deleted',
+      'deleted_at': DateTime.now().toIso8601String(),
+      'deleted_by': user.id,
+    }).eq('id', postId);
+    
+    return {'success': true};
+  } catch (e) {
+    debugPrint('Error deleting post: $e');
+    return {'success': false, 'error': e.toString()};
   }
+}
 
   /// Archive an expired post
   /// This moves it from 'active' to 'archived' status
