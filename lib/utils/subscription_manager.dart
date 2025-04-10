@@ -13,6 +13,7 @@ class SubscriptionManager {
       context,
       LimitedFeature.posts,
       'You have reached your monthly post limit.',
+      extraMessage: 'Note: Deleted posts still count toward your monthly limit.',
     );
   }
   
@@ -30,6 +31,7 @@ class SubscriptionManager {
     BuildContext context, 
     LimitedFeature feature,
     String limitMessage,
+    {String? extraMessage}
   ) async {
     final canUse = await _service.canUseFeature(feature);
     
@@ -44,6 +46,19 @@ class SubscriptionManager {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(limitMessage),
+              
+              if (extraMessage != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  extraMessage,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.red[700],
+                  ),
+                ),
+              ],
+              
               const SizedBox(height: 16),
               const Text(
                 'Would you like to upgrade your subscription to get more?',
@@ -104,6 +119,15 @@ class SubscriptionManager {
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: Theme.of(context).primaryColor,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Note: Deleted posts still count toward monthly limits.',
+              style: TextStyle(
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+                color: Colors.red[700],
               ),
             ),
           ],
@@ -259,6 +283,19 @@ class SubscriptionManager {
               postsData['isUnlimited'] as bool,
               Colors.blue,
             ),
+            // Add note about deleted posts
+            if (!(postsData['isUnlimited'] as bool))
+              Padding(
+                padding: const EdgeInsets.only(left: 28.0, top: 2.0, bottom: 8.0),
+                child: Text(
+                  'Note: Deleted posts still count toward your limit',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ),
             const SizedBox(height: 8),
             _buildUsageMeter(
               context,

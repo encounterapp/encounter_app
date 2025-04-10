@@ -182,11 +182,16 @@ class PostManager {
         return false;
       }
 
-      // Delete any related chat sessions
-      await _deleteRelatedChatSessions(postId);
+      // End any related chat sessions
+      await _endRelatedChatSessions(postId);
 
-      // Now delete the post
-      await supabase.from('posts').delete().eq('id', postId);
+      // Instead of deleting the post, mark it as deleted
+      // This ensures it still counts toward monthly limits
+      await supabase.from('posts').update({
+        'status': 'deleted',
+        'deleted_at': DateTime.now().toIso8601String(),
+        'deleted_by': user.id,
+      }).eq('id', postId);
       
       return true;
     } catch (e) {
@@ -286,6 +291,39 @@ class PostManager {
     } catch (e) {
       debugPrint('Error checking for active chat sessions: $e');
       return false;
+    }
+  }
+
+   /// End all chat sessions related to a post
+  static Future<void> _endRelatedChatSessions(String postId) async {
+    try {
+      // Get all chat sessions related to this post
+      final chatSessions = await supabase
+          .from('chat_sessions')
+          .select('id')
+          .eq('post_id', postId);
+
+      // For each chat session, mark it as ended
+      for (final session in chatSessions) {
+        final sessionId = session['id'];
+        
+        // Add a system message about post deletion
+        await supabase.from('messages').insert({
+          'chat_session_id': sessionId,
+          'content': 'This chat has been ended because the post was deleted by the creator.',
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+          'is_system_message': true,
+        });
+        
+        // End the chat session
+        await supabase.from('chat_sessions').update({
+          'status': 'ended',
+          'ended_at': DateTime.now().toUtc().toIso8601String(),
+          'end_reason': 'post_deleted',
+        }).eq('id', sessionId);
+      }
+    } catch (e) {
+      debugPrint('Error ending related chat sessions: $e');
     }
   }
 

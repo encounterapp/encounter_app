@@ -113,6 +113,8 @@ class SubscriptionService {
 
       // Feature specific queries
       if (feature == LimitedFeature.posts) {
+        // UPDATED: Include all posts created this month, regardless of current status
+        // This includes active, archived, and deleted posts
         final response = await supabase
             .from('posts')
             .select('id')

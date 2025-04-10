@@ -250,10 +250,16 @@ class PostListController {
         }
       }).toList();
       
-      // Filter out closed posts from main feed, but show them on user profiles
+      // Filter out posts based on status for main feed vs. user profile
       if (_userId == null) {
+        // For main feed, show only active posts
         filteredData = filteredData.where((post) => 
           post['status'] == null || post['status'] == 'active'
+        ).toList();
+      } else {
+        // For user profile, show all posts except deleted ones
+        filteredData = filteredData.where((post) => 
+          post['status'] != 'deleted'
         ).toList();
       }
       
@@ -323,10 +329,16 @@ class PostListController {
         }
       }).toList();
       
-      // Filter out closed posts from main feed, but show them on user profiles
+      // Filter posts based on status
       if (_userId == null) {
+        // For main feed, show only active posts
         filteredPosts = filteredPosts.where((post) => 
           post['status'] == null || post['status'] == 'active'
+        ).toList();
+      } else {
+        // For user profile, show all posts except deleted ones
+        filteredPosts = filteredPosts.where((post) => 
+          post['status'] != 'deleted'
         ).toList();
       }
       
@@ -367,7 +379,7 @@ class PostListController {
     _postsController.close();
   }
 
-    // Existing code with new method to refresh after deletion
+  // Existing code with new method to refresh after deletion
   Future<void> refreshAfterDeletion() async {
     _isLoading = true;
     notifyListeners();
@@ -379,7 +391,6 @@ class PostListController {
   void notifyListeners() {
     _postsController.add([]);
   }
-
 }
 
 /// Displays a list of posts, optionally filtered by user ID.
