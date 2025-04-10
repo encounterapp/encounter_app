@@ -2,17 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:encounter_app/utils/subscription_service.dart';
 import 'package:encounter_app/utils/subscription_manager.dart';
+import 'package:encounter_app/pages/home_page.dart';
 
 /// A utility class to manage post operations like deletion and archiving
 class PostManager {
   static final supabase = Supabase.instance.client;
+  
+  // Maximum number of active posts a user can have simultaneously
+  static const int MAX_ACTIVE_POSTS = 2;
 
-  /// Create a new post after checking subscription limits
+  /// Create a new post after checking subscription limits and active posts limit
   static Future<Map<String, dynamic>?> createPost(
     BuildContext context, 
     Map<String, dynamic> postData
   ) async {
-    // First check if the user can create a post based on their subscription
+    // First check if the user has reached active posts limit
+    final activePostsCount = await _getActivePostsCount();
+    
+    if (activePostsCount >= MAX_ACTIVE_POSTS) {
+      if (context.mounted) {
+        _showActivePostsLimitReachedDialog(context);
+      }
+      return null;
+    }
+    
+    // Next check if the user can create a post based on their subscription
     final canCreate = await SubscriptionManager.canCreatePost(context);
     
     if (!canCreate) return null;
@@ -54,6 +68,98 @@ class PostManager {
       debugPrint('Error creating post: $e');
       return null;
     }
+  }
+  
+  /// Get the number of active posts for the current user
+  static Future<int> _getActivePostsCount() async {
+    final user = supabase.auth.currentUser;
+    if (user == null) return 0;
+    
+    try {
+      // Get all active posts for the current user
+      final response = await supabase
+          .from('posts')
+          .select()
+          .eq('user_id', user.id)
+          .eq('status', 'active');
+      
+      // Count the results in the response list
+      return response.length;
+    } catch (e) {
+      debugPrint('Error getting active posts count: $e');
+      return 0;
+    }
+  }
+  
+  /// Show dialog when active posts limit is reached
+  static void _showActivePostsLimitReachedDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            SizedBox(width: 10),
+            Text('Active Posts Limit Reached'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'You can only have $MAX_ACTIVE_POSTS active posts at a time.',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'To create a new post, you need to either:',
+            ),
+            SizedBox(height: 8),
+            _buildOptionItem('Wait for someone to accept one of your posts'),
+            _buildOptionItem('Wait for an existing post to expire'),
+            _buildOptionItem('Delete one of your active posts'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('OK'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // Navigate to profile to see existing posts
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (context) => HomePage(selectedIndex: 2),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+            ),
+            child: Text('View My Posts'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  static Widget _buildOptionItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.arrow_right, size: 20, color: Colors.blue),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(text),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Delete a post by its ID

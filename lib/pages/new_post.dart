@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:encounter_app/utils/post_manager.dart';
 import 'package:encounter_app/utils/subscription_manager.dart';
 import 'package:encounter_app/utils/subscription_service.dart';
+import 'package:encounter_app/pages/home_page.dart'; // Add this for the HomePage reference
 
 class NewPost extends StatefulWidget {
   const NewPost({super.key});
@@ -21,11 +22,16 @@ class _NewPostState extends State<NewPost> {
   bool _isCheckingLimits = true; // Check subscription limits on load
   int _remainingPosts = 0; // Remaining posts this month
   bool _isUnlimited = false; // Whether the user has unlimited posts
+  
+  // New: Active posts tracking
+  int _activePostsCount = 0;
+  bool _isLoadingActivePosts = true;
 
   @override
   void initState() {
     super.initState();
     _checkSubscriptionLimits();
+    _fetchActivePostsCount();
   }
 
   @override
@@ -33,6 +39,44 @@ class _NewPostState extends State<NewPost> {
     _titleController.dispose();
     _contentController.dispose();
     super.dispose();
+  }
+  
+   /// Fetch the user's current active posts count
+  Future<void> _fetchActivePostsCount() async {
+    setState(() {
+      _isLoadingActivePosts = true;
+    });
+    
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) {
+        setState(() {
+          _isLoadingActivePosts = false;
+        });
+        return;
+      }
+      
+      // Get active posts and count them
+      final response = await supabase
+          .from('posts')
+          .select()
+          .eq('user_id', userId)
+          .eq('status', 'active');
+      
+      if (mounted) {
+        setState(() {
+          _activePostsCount = response.length;
+          _isLoadingActivePosts = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching active posts count: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingActivePosts = false;
+        });
+      }
+    }
   }
 
   Future<void> _checkSubscriptionLimits() async {
@@ -109,6 +153,12 @@ class _NewPostState extends State<NewPost> {
           content: Text("Title, content, and expiration are required!")));
       return;
     }
+    
+    // Check active posts limit
+    if (_activePostsCount >= PostManager.MAX_ACTIVE_POSTS) {
+      _showActivePostsLimitReachedDialog();
+      return;
+    }
 
     setState(() => _isPosting = true); // Show loading indicator
 
@@ -157,16 +207,142 @@ class _NewPostState extends State<NewPost> {
       setState(() => _isPosting = false);
     }
   }
+  
+  /// Show dialog when active posts limit is reached
+  void _showActivePostsLimitReachedDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            SizedBox(width: 10),
+            Text('Active Posts Limit Reached'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'You can only have ${PostManager.MAX_ACTIVE_POSTS} active posts at a time.',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'To create a new post, you need to either:',
+            ),
+            SizedBox(height: 8),
+            _buildOptionItem('Wait for someone to accept one of your posts'),
+            _buildOptionItem('Wait for an existing post to expire'),
+            _buildOptionItem('Delete one of your active posts'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('OK'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // Navigate to profile to see existing posts
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (context) => HomePage(selectedIndex: 2),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+            ),
+            child: Text('View My Posts'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildOptionItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.arrow_right, size: 20, color: Colors.blue),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(text),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Create Post')),
-      body: _isCheckingLimits
+      body: _isCheckingLimits || _isLoadingActivePosts
           ? const Center(child: CircularProgressIndicator())
-          : _remainingPosts <= 0 && !_isUnlimited
-              ? _buildLimitReachedView()
-              : _buildPostForm(),
+          : _activePostsCount >= PostManager.MAX_ACTIVE_POSTS
+              ? _buildActiveLimitReachedView()
+              : (_remainingPosts <= 0 && !_isUnlimited
+                  ? _buildLimitReachedView()
+                  : _buildPostForm()),
+    );
+  }
+  
+  Widget _buildActiveLimitReachedView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.orange[300]),
+            const SizedBox(height: 24),
+            const Text(
+              'Active Posts Limit Reached',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'You already have ${PostManager.MAX_ACTIVE_POSTS} active posts. '
+              'You can create a new post once a post expires, is accepted by someone, or you delete an existing post.',
+              style: TextStyle(fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (context) => HomePage(selectedIndex: 2),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.list),
+              label: const Text('View My Active Posts'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('Go Back'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -225,6 +401,32 @@ class _NewPostState extends State<NewPost> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Active posts info banner
+            Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.green[700]),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Active Posts: $_activePostsCount/${PostManager.MAX_ACTIVE_POSTS}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
             // Subscription info banner
             if (!_isUnlimited)
               Container(
