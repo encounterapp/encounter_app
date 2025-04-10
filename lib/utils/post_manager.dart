@@ -164,7 +164,6 @@ class PostManager {
 
   /// Delete a post by its ID
   /// Returns true if deletion was successful
-// In lib/utils/post_manager.dart
 static Future<Map<String, dynamic>> deletePost(String postId) async {
   try {
     // First check if the user is the owner of the post

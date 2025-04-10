@@ -929,6 +929,11 @@ static Future<bool> canCreateChatSession(BuildContext context, String recipientI
   return await canStartChatWith(currentUser.id, recipientId);
 }
 
+/// Check if a user is trying to chat with themselves
+static bool isSelfChat(String userId1, String userId2) {
+  return userId1 == userId2;
+}
+
   /// Create a chat session linked to a post
   static Future<String?> createChatSessionForPost(
   String postId, 
@@ -937,6 +942,19 @@ static Future<bool> canCreateChatSession(BuildContext context, String recipientI
 ) async {
   final currentUser = Supabase.instance.client.auth.currentUser;
   if (currentUser == null) return null;
+
+  // IMPORTANT: Prevent chatting with yourself
+  if (isSelfChat(currentUser.id, recipientId)) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You cannot start a chat with yourself.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+    return null;
+  }
   
   // Check subscription limits first
   final canCreate = await SubscriptionManager.canCreateChat(context);

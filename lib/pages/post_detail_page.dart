@@ -146,6 +146,17 @@ class _PostDetailPageState extends State<PostDetailPage> {
       return;
     }
 
+      // Check if user is trying to chat with themselves
+  if (currentUserId == _post!['user_id']) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('You cannot start a chat with yourself.'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
+  }
+
     // Check if post is closed
     if (_post!['status'] == 'closed') {
       ScaffoldMessenger.of(context).showSnackBar(

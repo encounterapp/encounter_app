@@ -738,6 +738,18 @@ class PostCard extends StatelessWidget {
       return;
     }
 
+  // Check if user is trying to chat with themselves
+  if (currentUser.id == recipientId) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('You cannot start a chat with yourself.'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
+  }
+
+
     // Check if post is closed
     if (post.isClosed) {
       ScaffoldMessenger.of(context).showSnackBar(
