@@ -1,9 +1,60 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:encounter_app/utils/subscription_service.dart';
+import 'package:encounter_app/utils/subscription_manager.dart';
 
 /// A utility class to manage post operations like deletion and archiving
 class PostManager {
   static final supabase = Supabase.instance.client;
+
+  /// Create a new post after checking subscription limits
+  static Future<Map<String, dynamic>?> createPost(
+    BuildContext context, 
+    Map<String, dynamic> postData
+  ) async {
+    // First check if the user can create a post based on their subscription
+    final canCreate = await SubscriptionManager.canCreatePost(context);
+    
+    if (!canCreate) return null;
+    
+    try {
+      // Now create the post
+      final response = await supabase
+          .from('posts')
+          .insert(postData)
+          .select()
+          .single();
+          
+      return response;
+    } catch (e) {
+      // Handle the case where the database throws an error
+      // This could happen if the subscription check above passes,
+      // but the database trigger still fails (unlikely but possible)
+      if (e is PostgrestException && 
+          e.message.contains('Monthly post limit reached')) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('You have reached your monthly post limit. Please upgrade your subscription.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error creating post: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+      
+      debugPrint('Error creating post: $e');
+      return null;
+    }
+  }
 
   /// Delete a post by its ID
   /// Returns true if deletion was successful

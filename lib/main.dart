@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:encounter_app/pages/auth_gate.dart';
+import 'package:encounter_app/pages/premium_page.dart';
 
 
 Future<void> main() async {
@@ -24,7 +25,20 @@ final supabase = Supabase.instance.client;
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      title: 'Encounter App',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+          elevation: 1,
+        ),
+      ),
       home: SupabaseAuthStateListener(),
+      routes: {
+        '/premium': (context) => const PremiumPage(),
+      },
     );
   }
 }

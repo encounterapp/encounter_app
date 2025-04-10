@@ -176,7 +176,8 @@ class _PostDetailPageState extends State<PostDetailPage> {
     // Create a chat session linked to this post
     final chatSessionId = await ChatController.createChatSessionForPost(
       widget.postId,
-      _post!['user_id']
+      _post!['user_id'],
+      context
     );
     
     // If chat session creation failed, show error

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 import 'package:encounter_app/utils/age_verification_utils.dart';
+import 'package:encounter_app/utils/subscription_manager.dart';
 
 /// ChatState represents the current state of a chat session
 class ChatState {
@@ -915,47 +916,68 @@ void _setupMeetingStatusListener() {
     }
   }
 
+  /// Check if the user can create a new chat session based on subscription limits
+static Future<bool> canCreateChatSession(BuildContext context, String recipientId) async {
+  // First check subscription limits
+  final canCreate = await SubscriptionManager.canCreateChat(context);
+  if (!canCreate) return false;
+  
+  // Then check the 24-hour cooldown rule
+  final currentUser = Supabase.instance.client.auth.currentUser;
+  if (currentUser == null) return false;
+  
+  return await canStartChatWith(currentUser.id, recipientId);
+}
+
   /// Create a chat session linked to a post
-  static Future<String?> createChatSessionForPost(String postId, String recipientId) async {
-    final currentUser = Supabase.instance.client.auth.currentUser;
-    if (currentUser == null) return null;
+  static Future<String?> createChatSessionForPost(
+  String postId, 
+  String recipientId,
+  BuildContext context,
+) async {
+  final currentUser = Supabase.instance.client.auth.currentUser;
+  if (currentUser == null) return null;
+  
+  // Check subscription limits first
+  final canCreate = await SubscriptionManager.canCreateChat(context);
+  if (!canCreate) return null;
+  
+  // Check if post is available
+  final isAvailable = await isPostAvailable(postId);
+  if (!isAvailable) return null;
+  
+  try {
+    // Create unique chat ID
+    final smallerId = currentUser.id.compareTo(recipientId) < 0 
+        ? currentUser.id 
+        : recipientId;
+    final largerId = currentUser.id.compareTo(recipientId) < 0 
+        ? recipientId 
+        : currentUser.id;
     
-    // First check if post is available
-    final isAvailable = await isPostAvailable(postId);
-    if (!isAvailable) return null;
+    // Generate a unique chat ID that includes the post ID
+    final chatId = '${smallerId}_${largerId}_${postId}';
     
-    try {
-      // Create unique chat ID
-      final smallerId = currentUser.id.compareTo(recipientId) < 0 
-          ? currentUser.id 
-          : recipientId;
-      final largerId = currentUser.id.compareTo(recipientId) < 0 
-          ? recipientId 
-          : currentUser.id;
-      
-      // Generate a unique chat ID that includes the post ID
-      final chatId = '${smallerId}_${largerId}_${postId}';
-      
-      // Check if this chat session already exists
-      final existingChat = await Supabase.instance.client
+    // Check if this chat session already exists
+    final existingChat = await Supabase.instance.client
+        .from('chat_sessions')
+        .select()
+        .eq('id', chatId)
+        .maybeSingle();
+        
+    if (existingChat == null) {
+      // Create new chat session
+      await Supabase.instance.client
           .from('chat_sessions')
-          .select()
-          .eq('id', chatId)
-          .maybeSingle();
+          .insert({
+            'id': chatId,
+            'user1_id': smallerId,
+            'user2_id': largerId,
+            'post_id': postId,
+            'status': 'active',
+            'created_at': DateTime.now().toUtc().toIso8601String(),
+          });
           
-      if (existingChat == null) {
-        // Create new chat session
-        await Supabase.instance.client
-            .from('chat_sessions')
-            .insert({
-              'id': chatId,
-              'user1_id': smallerId,
-              'user2_id': largerId,
-              'post_id': postId,
-              'status': 'active',
-              'created_at': DateTime.now().toUtc().toIso8601String(),
-            });
-            
     } else {
       // Update existing chat with post_id if needed
       if (existingChat['post_id'] == null) {
@@ -965,13 +987,102 @@ void _setupMeetingStatusListener() {
             .eq('id', chatId);
       }
     }
-      
-      return chatId;
-    } catch (e) {
-      debugPrint("Error creating chat session for post: $e");
-      return null;
+    
+    return chatId;
+  } catch (e) {
+    debugPrint("Error creating chat session for post: $e");
+    
+    // Check if this is a limit reached exception
+    if (e is PostgrestException && e.message.contains('Monthly chat session limit reached')) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You have reached your monthly chat session limit. Please upgrade your subscription.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        
+        // Show dialog asking to upgrade
+        _showUpgradeDialog(context);
+      }
     }
+    
+    return null;
   }
+}
+
+/// Show dialog to upgrade subscription
+static Future<void> _showUpgradeDialog(BuildContext context) async {
+  final shouldUpgrade = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Row(
+        children: [
+          Icon(Icons.warning, color: Colors.orange),
+          SizedBox(width: 10),
+          Text('Subscription Limit Reached'),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'You have reached your monthly chat session limit.',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 10),
+          Text(
+            'Would you like to upgrade your subscription to get more chat sessions?',
+          ),
+          SizedBox(height: 16),
+          Text(
+            'Premium tiers offer:',
+            style: TextStyle(fontWeight: FontWeight.w500),
+          ),
+          SizedBox(height: 8),
+          _buildFeatureItem('Tier 1: 150 chat sessions per month'),
+          _buildFeatureItem('Tier 2: 300 chat sessions per month'),
+          _buildFeatureItem('Tier 3: Unlimited chat sessions'),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text('NOT NOW'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue,
+          ),
+          child: Text('UPGRADE'),
+        ),
+      ],
+    ),
+  ) ?? false;
+
+  if (shouldUpgrade && context.mounted) {
+    Navigator.pushNamed(context, '/premium');
+  }
+}
+
+static Widget _buildFeatureItem(String text) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.check_circle, color: Colors.green, size: 18),
+        SizedBox(width: 8),
+        Expanded(
+          child: Text(text),
+        ),
+      ],
+    ),
+  );
+}
+
   
   /// Check if a post is available for chatting
   static Future<bool> isPostAvailable(String postId) async {

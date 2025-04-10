@@ -671,7 +671,8 @@ class PostCard extends StatelessWidget {
     // Create a chat session linked to this post
     final chatSessionId = await ChatController.createChatSessionForPost(
       post.id,
-      recipientId
+      recipientId,
+      context
     );
     
     // If chat session creation failed, show error
