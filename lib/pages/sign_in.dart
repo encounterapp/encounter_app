@@ -1,9 +1,6 @@
-import 'package:encounter_app/components/my_buttons.dart';
-import 'package:encounter_app/components/my_textfields.dart';
 import 'package:encounter_app/components/square_tile.dart';
+import 'package:encounter_app/pages/email_sign_in.dart';
 import 'package:encounter_app/pages/home_page.dart';
-import 'package:encounter_app/pages/login_or_register.dart';
-import 'package:encounter_app/pages/reset_password.dart';
 import 'package:flutter/material.dart';
 import 'package:encounter_app/services/auth_service.dart';
 
@@ -18,258 +15,331 @@ class SignInPage extends StatefulWidget {
 class _SignInPageState extends State<SignInPage> {
   // Get Auth Service
   final authService = SupabaseAuthService();
-  // Text editing controllers
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
   bool _isLoading = false;
 
-  //Sign User In Method
-  void signUserIn() async {
-    final email = emailController.text.trim();
-    final password = passwordController.text.trim();
+  // Google Sign In Method
+  void signInWithGoogle() async {
+    setState(() => _isLoading = true);
     
-    // Validate inputs
-    if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter both email and password'),
-        ),
-      );
-      return;
-    }
-    
-    // Show loading indicator
-    setState(() {
-      _isLoading = true;
-    });
-    
-    //attempt to sign in user
     try {
-      final response = await authService.signInWithEmailPassword(
-        email: email, 
-        password: password
+      // TODO: Implement Google sign in using Supabase and Google Sign In package
+      // For now, just show a message
+      
+      // Example code (to be implemented):
+      // final response = await authService.signInWithGoogle();
+      // if (response.user != null) {
+      //   Navigator.pushReplacement(
+      //     context,
+      //     MaterialPageRoute(builder: (context) => const HomePage(selectedIndex: 0)),
+      //   );
+      // }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Google Sign In feature coming soon!')),
       );
-      
-      // Hide loading indicator
-      setState(() {
-        _isLoading = false;
-      });
-      
-      // Check if sign in was successful
-      if (response.user != null) {
-        // Call onTap callback if it exists
-        if (widget.onTap != null) {
-          widget.onTap!();
-        }
-        
-        // Navigate to Home Page
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const HomePage(selectedIndex: 0),
-            ),
-          );
-        }
-      } else {
-        // Show error message if sign in failed but no exception was thrown
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Invalid email or password'),
-            ),
-          );
-        }
-      }
     } catch (e) {
-      // Hide loading indicator
-      setState(() {
-        _isLoading = false;
-      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sign in failed: ${e.toString()}')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // Apple Sign In Method
+  void signInWithApple() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      // TODO: Implement Apple sign in using Supabase and Sign In With Apple package
+      // For now, just show a message
       
-      // Show error message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Sign in failed: ${e.toString()}'),
-          ),
-        );
-      }
+      // Example code (to be implemented):
+      // final response = await authService.signInWithApple();
+      // if (response.user != null) {
+      //   Navigator.pushReplacement(
+      //     context,
+      //     MaterialPageRoute(builder: (context) => const HomePage(selectedIndex: 0)),
+      //   );
+      // }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Apple Sign In feature coming soon!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sign in failed: ${e.toString()}')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // LINE Sign In Method
+  void signInWithLine() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      // TODO: Implement LINE sign in
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('LINE Sign In feature coming soon!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sign in failed: ${e.toString()}')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // Kakao Sign In Method
+  void signInWithKakao() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      // TODO: Implement Kakao sign in
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kakao Sign In feature coming soon!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sign in failed: ${e.toString()}')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-                  // Add the gradient background
-      backgroundColor: Colors.transparent, // Set to transparent to show the gradient
-      extendBodyBehindAppBar: true, // Extend the body behind the app bar
+      // Add the gradient background
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: true,
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color.fromRGBO(255,179,189,1),
-              Color.fromRGBO(254,248,154,1),
-              Color.fromRGBO(161,224,186,1),
+              Color.fromRGBO(255, 179, 189, 1),
+              Color.fromRGBO(254, 248, 154, 1),
+              Color.fromRGBO(161, 224, 186, 1),
             ],
-            stops: [0.018, 0.506, 1.03], // 1.8% and 50.6% and 100.3%
+            stops: [0.018, 0.506, 1.03],
           ),
         ),
-      child: SafeArea(
-        child: Center(
-        child: SingleChildScrollView(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-
-          // Logo
-          const Icon(
-            Icons.account_circle,
-            size: 100,
-            color: Colors.black,
-          ),
-          // Greetings
-          const SizedBox(height: 20),
-          Text('Welcome, we are happy to see you again!',
-              style: TextStyle(color: Colors.black,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              )
-          ),
-          const SizedBox(height: 20),
-
-          // Sign In
-          const Text('Sign In',
-              style: TextStyle(color: Colors.black,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              )
-          ),
-          const SizedBox(height: 20),
-
-
-          // Username TextField
-          MyTextfields(
-            controller: emailController,
-            hintText: 'Email',
-            obscureText: false,
-          ),
-          const SizedBox(height: 10),
-
-
-          // Password TextField
-          MyTextfields(
-            controller: passwordController,
-            hintText: 'Password', 
-            obscureText: true),
-          const SizedBox(height: 5),
-
-          // Forgot Password
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-             GestureDetector(
-                onTap: () {
-                  Navigator.push(context,
-                    MaterialPageRoute(
-                      builder: (context) => ResetPasswordPage(onTap: widget.onTap),
-                          ),
-                        );
-                      },
-                child: const Text('Reset Password',
-                  style: TextStyle(
-                    color: Colors.blue,
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Logo
+                  const Icon(
+                    Icons.account_circle,
+                    size: 100,
+                    color: Colors.black,
                   ),
-                ),
+                  
+                  // Greeting
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Welcome to Encounter!',
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Sign in to connect with people around you',
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 16,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  
+                  const SizedBox(height: 40),
+                  
+                  // Social Sign In Buttons
+                  // Google Sign In
+                  _buildSocialSignInButton(
+                    'Sign in with Google',
+                    'assets/icons/google.png',
+                    signInWithGoogle,
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  // Apple Sign In
+                  _buildSocialSignInButton(
+                    'Sign in with Apple',
+                    'assets/icons/apple.png',
+                    signInWithApple,
+                    backgroundColor: Colors.black,
+                    textColor: Colors.white,
+                  ),              
+
+                  const SizedBox(height: 30),
+                  
+                  // OR divider
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 25.0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Divider(
+                            thickness: 0.5,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'OR',
+                          style: TextStyle(
+                            color: Colors.grey.shade700,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Divider(
+                            thickness: 0.5,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 20),
+                  
+                  // Email Sign In Button
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EmailSignInPage(onTap: widget.onTap),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 15),
+                      margin: const EdgeInsets.symmetric(horizontal: 25),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.1),
+                            spreadRadius: 1,
+                            blurRadius: 3,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.email, color: Colors.blue),
+                          SizedBox(width: 10),
+                          Text(
+                            'Continue with Email',
+                            style: TextStyle(
+                              color: Colors.blue,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 20),
+                  
+                  // Create Account
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text("Don't have an account?"),
+                      const SizedBox(width: 5),
+                      GestureDetector(
+                        onTap: widget.onTap,
+                        child: const Text(
+                          'Create Account',
+                          style: TextStyle(
+                            color: Colors.blue,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 30),
+                ],
               ),
-              ],
             ),
           ),
-          const SizedBox(height: 10),
-
-          // Sign In Button
-          _isLoading
-              ? const CircularProgressIndicator()
-              : MyButtons(onTap: signUserIn),
-          const SizedBox(height: 20),
-
-          // or Continue with
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 25.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Divider(
-                    thickness: 0.5,
-                    color: Colors.grey.shade300,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  'or Continue with',
-                  style: TextStyle(
-                    color: Colors.grey.shade700,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Divider(
-                    thickness: 0.5,
-                    color: Colors.grey.shade300,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Google Button + Apple Button + Facebook Button
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              //Google Button
-              SquareTile(imagePath:'assets/icons/google.png'),
-              const SizedBox(width: 15),
-              //Apple Button
-              SquareTile(imagePath:'assets/icons/apple.png'),
-            ],
-          ),
-          const SizedBox(height: 20),
-          
-          
-          // Create Account
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text('Don\'t have an account?'),
-              const SizedBox(width: 5),
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(context,
-                    MaterialPageRoute(
-                      builder: (context) => const LoginOrRegisterPage(),
-                          ),
-                        );
-                      },
-                child: const Text('Create Account',
-                  style: TextStyle(
-                    color: Colors.blue,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          )
-        ],
+        ),
       ),
-    ),
-    ),
-    ),
-    ));
+    );
+  }
+
+  Widget _buildSocialSignInButton(
+    String text,
+    String imagePath,
+    VoidCallback onTap, {
+    Color backgroundColor = Colors.white,
+    Color textColor = Colors.black,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 25),
+      child: GestureDetector(
+        onTap: _isLoading ? null : onTap,
+        child: Container(
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.2),
+                spreadRadius: 1,
+                blurRadius: 3,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Image.asset(
+                imagePath,
+                height: 24,
+              ),
+              const Spacer(),
+              Text(
+                text,
+                style: TextStyle(
+                  color: textColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              const Spacer(),
+              SizedBox(width: 24), // Balance the icon on the left
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
