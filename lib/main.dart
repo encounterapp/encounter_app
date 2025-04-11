@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:encounter_app/pages/auth_gate.dart';
 import 'package:encounter_app/pages/premium_page.dart';
+import 'package:encounter_app/pages/blocked_users_page.dart';
+import 'package:encounter_app/pages/my_reports_page.dart';
 
 
 Future<void> main() async {
@@ -38,6 +40,8 @@ final supabase = Supabase.instance.client;
       home: SupabaseAuthStateListener(),
       routes: {
         '/premium': (context) => const PremiumPage(),
+        '/blocked_users': (context) => const BlockedUsersPage(),
+        '/my_reports': (context) => const MyReportsPage(),
       },
     );
   }

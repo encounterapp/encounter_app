@@ -11,6 +11,7 @@ import 'package:encounter_app/widgets/action_buttons_pane.dart';
 import 'package:encounter_app/utils/age_verification_utils.dart';
 import 'package:encounter_app/controllers/chat_controller.dart';
 import 'package:encounter_app/widgets/map_action_buttons.dart';
+import 'package:encounter_app/widgets/report_dialog.dart';
 
 class ChatScreen extends StatefulWidget {
   final String recipientId;
@@ -179,6 +180,148 @@ void _controllerUpdated() {
       });
     }
   }
+
+  void _showReportDialog() async {
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => ReportDialog(
+      recipientId: widget.recipientId,
+      recipientUsername: _controller.recipientUsername,
+      onSubmit: (reason, details) async {
+        // Close the dialog
+        Navigator.of(context).pop();
+        
+        // Check if user has reported recently
+        final currentUserId = _controller.currentUserId;
+        if (currentUserId == null) return;
+        
+        final hasReportedRecently = await ChatController.hasReportedRecently(
+          currentUserId, 
+          widget.recipientId
+        );
+        
+        if (hasReportedRecently) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('You have already reported this user recently. Our team is reviewing your previous report.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          return;
+        }
+        
+        // Submit the report
+        final success = await _controller.reportUser(reason, details);
+        
+        if (success && mounted) {
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Report submitted successfully. Our team will review it shortly.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          
+          // Ask if user wants to block this person
+          _showBlockUserDialog();
+        } else if (mounted) {
+          // Show error message
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to submit report. Please try again later.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      },
+    ),
+  );
+}
+
+void _showBlockUserDialog() {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Row(
+        children: [
+          Icon(Icons.block, color: Colors.red),
+          SizedBox(width: 10),
+          Text('Block User?'),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Would you like to block ${_controller.recipientUsername ?? "this user"}?',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 10),
+          Text(
+            'Blocking will:',
+          ),
+          SizedBox(height: 8),
+          _buildBlockInfoItem('End this conversation'),
+          _buildBlockInfoItem('Prevent them from contacting you again'),
+          _buildBlockInfoItem('Hide their posts from your feed'),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text('NOT NOW'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            Navigator.of(context).pop();
+            
+            // Block the user
+            final success = await _controller.blockUser();
+            
+            if (success && mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('User blocked successfully.'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+              
+              // Return to previous screen
+              Navigator.of(context).pop();
+            } else if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Failed to block user. Please try again later.'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red,
+          ),
+          child: Text('BLOCK USER'),
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _buildBlockInfoItem(String text) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 4),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.check, size: 16, color: Colors.red),
+        SizedBox(width: 8),
+        Expanded(child: Text(text)),
+      ],
+    ),
+  );
+}
 
   Future<void> _handleMeet() async {
     if (_controller.isChatEnded || _controller.currentUserRequestedMeeting) return;
@@ -585,6 +728,12 @@ Future<void> _handleMeetingResult(bool didMeet) async {
             });
           },
           tooltip: _showMap ? 'Show Chat' : 'Show Map',
+        ),
+                // Add report button
+        IconButton(
+          icon: const Icon(Icons.report, color: Colors.red),
+          onPressed: () => _showReportDialog(),
+          tooltip: 'Report User',
         ),
         if (!_controller.isChatEnded) // Show settings only if chat is active
           IconButton(

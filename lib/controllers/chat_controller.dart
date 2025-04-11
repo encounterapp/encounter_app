@@ -348,6 +348,124 @@ Future<void> _checkIfChatIsEnded() async {
     debugPrint("Error checking if chat is ended: $e");
   }
 }
+
+/// Report a user for inappropriate behavior
+  Future<bool> reportUser(String reason, String details) async {
+    if (_currentUserId == null) return false;
+    
+    try {
+      // Create a unique report ID based on timestamp
+      final reportId = 'report_${DateTime.now().millisecondsSinceEpoch}';
+      
+      // Create the base report data
+      final Map<String, dynamic> reportData = {
+        'id': reportId,
+        'reporter_id': _currentUserId,
+        'reported_user_id': recipientId,
+        'reason': reason,
+        'details': details,
+        'status': 'pending', // Initial status is pending review
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+      };
+      
+      // Add chat session ID if we have a valid one
+      final chatId = _generateChatId();
+      if (chatId.isNotEmpty) {
+        reportData['chat_session_id'] = chatId;
+      }
+      
+      // Add post ID if we have one and it's in a proper format
+      if (postId != null && postId!.isNotEmpty) {
+        // Basic validation for UUID format
+        if (postId!.length >= 36 && postId!.contains('-')) {
+          reportData['post_id'] = postId!;
+        } else {
+          debugPrint('Invalid post ID format, not including in report: $postId');
+        }
+      }
+      
+      // Submit report to database
+      await supabase.from('user_reports').insert(reportData);
+      
+      // Add an invisible system message to mark this report in the chat history
+      // (only visible to admins in the database)
+      await supabase.from('messages').insert({
+        'sender_id': _currentUserId,
+        'receiver_id': recipientId,
+        'content': "User reported for: $reason",
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+        'is_system_message': true,
+        'is_hidden': true, // This message won't be shown in the chat
+        'report_id': reportId,
+      });
+      
+      // Return success
+      return true;
+    } catch (e) {
+      debugPrint("Error reporting user: $e");
+      return false;
+    }
+  }
+
+  
+  /// Static method to check if a user has been reported recently
+  static Future<bool> hasReportedRecently(String reporterId, String reportedUserId) async {
+    try {
+      // Check if there's a report in the last 7 days
+      final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7)).toUtc().toIso8601String();
+      
+      final reports = await Supabase.instance.client
+          .from('user_reports')
+          .select()
+          .eq('reporter_id', reporterId)
+          .eq('reported_user_id', reportedUserId)
+          .gte('created_at', sevenDaysAgo);
+          
+      return reports.isNotEmpty;
+    } catch (e) {
+      debugPrint("Error checking recent reports: $e");
+      return false; // Allow reporting on error to ensure safety
+    }
+  }
+  
+  /// Block a user after reporting
+  Future<bool> blockUser() async {
+    if (_currentUserId == null) return false;
+    
+    try {
+      // Add to blocked users table
+      await supabase.from('blocked_users').insert({
+        'blocker_id': _currentUserId,
+        'blocked_id': recipientId,
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+      });
+      
+      // End the chat
+      await endChat(reason: 'blocked');
+      
+      return true;
+    } catch (e) {
+      debugPrint("Error blocking user: $e");
+      return false;
+    }
+  }
+  
+  /// Static method to check if a user is blocked
+  static Future<bool> isUserBlocked(String userId1, String userId2) async {
+    try {
+      // Check if either user has blocked the other
+      final blockedRecords = await Supabase.instance.client
+          .from('blocked_users')
+          .select()
+          .or('and(blocker_id.eq.$userId1,blocked_id.eq.$userId2),and(blocker_id.eq.$userId2,blocked_id.eq.$userId1)');
+          
+      return blockedRecords.isNotEmpty;
+    } catch (e) {
+      debugPrint("Error checking if user is blocked: $e");
+      return false;
+    }
+  }
+
   
   // Fetch recipient profile info
   Future<void> _fetchUserProfile() async {
