@@ -3,6 +3,7 @@ import 'package:encounter_app/pages/email_sign_in.dart';
 import 'package:encounter_app/pages/home_page.dart';
 import 'package:flutter/material.dart';
 import 'package:encounter_app/services/auth_service.dart';
+import 'package:encounter_app/pages/create_profile.dart';
 
 class SignInPage extends StatefulWidget {
   final Function()? onTap;
@@ -22,27 +23,38 @@ class _SignInPageState extends State<SignInPage> {
     setState(() => _isLoading = true);
     
     try {
-      // TODO: Implement Google sign in using Supabase and Google Sign In package
-      // For now, just show a message
+      final response = await authService.signInWithGoogle();
       
-      // Example code (to be implemented):
-      // final response = await authService.signInWithGoogle();
-      // if (response.user != null) {
-      //   Navigator.pushReplacement(
-      //     context,
-      //     MaterialPageRoute(builder: (context) => const HomePage(selectedIndex: 0)),
-      //   );
-      // }
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Google Sign In feature coming soon!')),
-      );
+      if (response.user != null) {
+        // Check if this is a new user
+        final isNewUser = response.user!.createdAt == response.user!.updatedAt;
+        
+        if (mounted) {
+          if (isNewUser) {
+            // New user, navigate to profile creation
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const CreateProfilePage()),
+            );
+          } else {
+            // Existing user, navigate to home
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const HomePage(selectedIndex: 0)),
+            );
+          }
+        }
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Sign in failed: ${e.toString()}')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sign in failed: ${e.toString()}')),
+        );
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -51,27 +63,38 @@ class _SignInPageState extends State<SignInPage> {
     setState(() => _isLoading = true);
     
     try {
-      // TODO: Implement Apple sign in using Supabase and Sign In With Apple package
-      // For now, just show a message
+      final response = await authService.signInWithApple();
       
-      // Example code (to be implemented):
-      // final response = await authService.signInWithApple();
-      // if (response.user != null) {
-      //   Navigator.pushReplacement(
-      //     context,
-      //     MaterialPageRoute(builder: (context) => const HomePage(selectedIndex: 0)),
-      //   );
-      // }
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Apple Sign In feature coming soon!')),
-      );
+      if (response.user != null) {
+        // Check if this is a new user
+        final isNewUser = response.user!.createdAt == response.user!.updatedAt;
+        
+        if (mounted) {
+          if (isNewUser) {
+            // New user, navigate to profile creation
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const CreateProfilePage()),
+            );
+          } else {
+            // Existing user, navigate to home
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const HomePage(selectedIndex: 0)),
+            );
+          }
+        }
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Sign in failed: ${e.toString()}')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sign in failed: ${e.toString()}')),
+        );
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -285,6 +308,10 @@ class _SignInPageState extends State<SignInPage> {
                   ),
                   
                   const SizedBox(height: 30),
+                  
+                  // Loading indicator
+                  if (_isLoading)
+                    const CircularProgressIndicator(),
                 ],
               ),
             ),
