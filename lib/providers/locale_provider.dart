@@ -17,10 +17,17 @@ class LocaleProvider extends ChangeNotifier {
   }
 
   Future<void> setLocale(Locale locale) async {
-    if (_locale == locale) return;
+    if (_locale.languageCode == locale.languageCode && 
+        _locale.countryCode == locale.countryCode) return;
     
     _locale = locale;
     await _languageService.setLocale(locale);
     notifyListeners();
+  }
+  
+  // Method to check if a specific locale is currently selected
+  bool isLocaleSelected(Locale checkLocale) {
+    return _locale.languageCode == checkLocale.languageCode && 
+           _locale.countryCode == checkLocale.countryCode;
   }
 }

@@ -47,11 +47,27 @@ class LanguageService {
   String getLanguageName(Locale locale) {
     try {
       return languages.firstWhere(
-        (language) => language['locale'].languageCode == locale.languageCode,
+        (language) => 
+          language['locale'].languageCode == locale.languageCode && 
+          language['locale'].countryCode == locale.countryCode,
         orElse: () => languages.first,
       )['name'];
     } catch (e) {
       return languages.first['name'];
+    }
+  }
+
+  // Find a language entry by locale
+  Map<String, dynamic>? findLanguageByLocale(Locale locale) {
+    try {
+      return languages.firstWhere(
+        (language) => 
+          language['locale'].languageCode == locale.languageCode && 
+          language['locale'].countryCode == locale.countryCode,
+        orElse: () => throw Exception('Language not found'),
+      );
+    } catch (e) {
+      return null;
     }
   }
 }

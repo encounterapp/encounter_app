@@ -529,7 +529,7 @@ class AppLocalizations {
   'Simplified Chinese',
   name: 'simplifiedChinese',
   desc: 'Name of Simplified Chinese language',
-);
+  );
 
   String get traditionalChinese => Intl.message(
     'Traditional Chinese',
@@ -544,38 +544,46 @@ class AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
   const AppLocalizationsDelegate();
 
 @override
-bool isSupported(Locale locale) {
-  // Check language code
-  if (!['en', 'ja', 'ko', 'es', 'fr', 'de', 'vi', 'zh'].contains(locale.languageCode)) {
-    return false;
+  bool isSupported(Locale locale) {
+    // Check for basic language support
+    if (!['en', 'ja', 'ko', 'es', 'fr', 'de', 'vi', 'zh'].contains(locale.languageCode)) {
+      return false;
+    }
+    
+    // For Chinese, ensure we have a valid country code
+    if (locale.languageCode == 'zh') {
+      // Only support specific country codes for Chinese
+      return locale.countryCode == 'CN' || locale.countryCode == 'TW';
+    }
+    
+    return true;
   }
-  
-  // For Chinese, check country code
-  if (locale.languageCode == 'zh') {
-    return ['CN', 'TW'].contains(locale.countryCode);
-  }
-  
-  return true;
-}
 
-@override
-Future<AppLocalizations> load(Locale locale) {
-  // For zh_TW, set locale name explicitly to handle Traditional Chinese
-  final String name;
-  if (locale.languageCode == 'zh' && locale.countryCode == 'TW') {
-    name = 'zh_TW';
-  } else {
-    name = locale.countryCode == null || locale.countryCode!.isEmpty
-        ? locale.languageCode
-        : locale.toString();
+  @override
+  Future<AppLocalizations> load(Locale locale) {
+    // Handle Chinese variants correctly
+    final String localeName;
+    
+    if (locale.languageCode == 'zh') {
+      // Ensure we always use the correct locale name for traditional Chinese
+      if (locale.countryCode == 'TW') {
+        localeName = 'zh_TW';
+      } else {
+        // Default to zh_CN for other Chinese variants or missing country code
+        localeName = 'zh';
+      }
+    } else {
+      // For other languages
+      localeName = locale.countryCode == null || locale.countryCode!.isEmpty
+          ? locale.languageCode
+          : locale.toString();
+    }
+    
+    return initializeMessages(localeName).then((_) {
+      Intl.defaultLocale = localeName;
+      return AppLocalizations();
+    });
   }
-  
-  final String localeName = Intl.canonicalizedLocale(name);
-  return initializeMessages(localeName).then((_) {
-    Intl.defaultLocale = localeName;
-    return AppLocalizations();
-  });
-}
 
   @override
   bool shouldReload(AppLocalizationsDelegate old) => false;
