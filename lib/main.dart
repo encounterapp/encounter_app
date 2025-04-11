@@ -4,6 +4,7 @@ import 'package:encounter_app/pages/auth_gate.dart';
 import 'package:encounter_app/pages/premium_page.dart';
 import 'package:encounter_app/pages/blocked_users_page.dart';
 import 'package:encounter_app/pages/my_reports_page.dart';
+import 'package:encounter_app/pages/language_settings_page.dart';
 
 
 Future<void> main() async {
@@ -42,6 +43,7 @@ final supabase = Supabase.instance.client;
         '/premium': (context) => const PremiumPage(),
         '/blocked_users': (context) => const BlockedUsersPage(),
         '/my_reports': (context) => const MyReportsPage(),
+        '/language_settings': (context) => const LanguageSettingsPage(),
       },
     );
   }

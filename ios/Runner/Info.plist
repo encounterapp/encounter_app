@@ -57,5 +57,33 @@
 	<string>Encounter needs your location to show you on the map when meeting with other users.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Encounter needs your location to show you on the map when meeting with other users.</string>
+	
+	<!-- Google Sign-In Configuration -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- Replace with your actual reversed client ID from Google -->
+				<string>c600977373134-kvvc0mc410mhmcr8ucajuubmkib0535l.apps.googleusercontent.com</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- Your app's bundle ID for Apple Sign-In -->
+				<string>com.example.encounter_app</string>
+			</array>
+		</dict>
+	</array>
+	
+	<!-- Apple Sign-In Configuration -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>Encounter uses Face ID to securely authenticate your sign in.</string>
+	
 </dict>
 </plist>

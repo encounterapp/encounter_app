@@ -1,0 +1,507 @@
+{
+  "@@last_modified": "2025-04-11T12:31:33.761747",
+  "appTitle": "Encounter App",
+  "@appTitle": {
+    "description": "The title of the application",
+    "type": "text",
+    "placeholders": {}
+  },
+  "signIn": "Sign In",
+  "@signIn": {
+    "description": "Text for sign in button",
+    "type": "text",
+    "placeholders": {}
+  },
+  "signUp": "Sign Up",
+  "@signUp": {
+    "description": "Text for sign up button",
+    "type": "text",
+    "placeholders": {}
+  },
+  "email": "Email",
+  "@email": {
+    "description": "Label for email field",
+    "type": "text",
+    "placeholders": {}
+  },
+  "password": "Password",
+  "@password": {
+    "description": "Label for password field",
+    "type": "text",
+    "placeholders": {}
+  },
+  "confirmPassword": "Confirm Password",
+  "@confirmPassword": {
+    "description": "Label for confirm password field",
+    "type": "text",
+    "placeholders": {}
+  },
+  "forgotPassword": "Forgot Password",
+  "@forgotPassword": {
+    "description": "Text for forgot password option",
+    "type": "text",
+    "placeholders": {}
+  },
+  "resetPassword": "Reset Password",
+  "@resetPassword": {
+    "description": "Text for reset password button",
+    "type": "text",
+    "placeholders": {}
+  },
+  "continueWithEmail": "Continue with Email",
+  "@continueWithEmail": {
+    "description": "Text for continue with email button",
+    "type": "text",
+    "placeholders": {}
+  },
+  "signInWithGoogle": "Sign in with Google",
+  "@signInWithGoogle": {
+    "description": "Text for sign in with Google button",
+    "type": "text",
+    "placeholders": {}
+  },
+  "signInWithApple": "Sign in with Apple",
+  "@signInWithApple": {
+    "description": "Text for sign in with Apple button",
+    "type": "text",
+    "placeholders": {}
+  },
+  "welcomeBack": "Welcome back!",
+  "@welcomeBack": {
+    "description": "Welcome message for returning users",
+    "type": "text",
+    "placeholders": {}
+  },
+  "welcomeMessage": "Welcome to Encounter!",
+  "@welcomeMessage": {
+    "description": "Welcome message for new users",
+    "type": "text",
+    "placeholders": {}
+  },
+  "welcomeSubtitle": "Sign in to connect with people around you",
+  "@welcomeSubtitle": {
+    "description": "Subtitle for welcome screen",
+    "type": "text",
+    "placeholders": {}
+  },
+  "dontHaveAccount": "Don't have an account?",
+  "@dontHaveAccount": {
+    "description": "Message for users without an account",
+    "type": "text",
+    "placeholders": {}
+  },
+  "createAccount": "Create Account",
+  "@createAccount": {
+    "description": "Text for create account button",
+    "type": "text",
+    "placeholders": {}
+  },
+  "haveAccount": "Have an account?",
+  "@haveAccount": {
+    "description": "Message for users with an account",
+    "type": "text",
+    "placeholders": {}
+  },
+  "verifyEmailTitle": "Verify Your Email",
+  "@verifyEmailTitle": {
+    "description": "Title for email verification screen",
+    "type": "text",
+    "placeholders": {}
+  },
+  "verifyEmailSent": "A verification code has been sent to",
+  "@verifyEmailSent": {
+    "description": "Message indicating a verification code has been sent",
+    "type": "text",
+    "placeholders": {}
+  },
+  "enterVerificationCode": "Enter verification code",
+  "@enterVerificationCode": {
+    "description": "Prompt to enter verification code",
+    "type": "text",
+    "placeholders": {}
+  },
+  "didntReceiveCode": "Didn't receive code? Send again",
+  "@didntReceiveCode": {
+    "description": "Option to resend verification code",
+    "type": "text",
+    "placeholders": {}
+  },
+  "invalidEmail": "Invalid email",
+  "@invalidEmail": {
+    "description": "Error message for invalid email",
+    "type": "text",
+    "placeholders": {}
+  },
+  "invalidPassword": "Invalid password",
+  "@invalidPassword": {
+    "description": "Error message for invalid password",
+    "type": "text",
+    "placeholders": {}
+  },
+  "passwordsDoNotMatch": "Passwords do not match",
+  "@passwordsDoNotMatch": {
+    "description": "Error message when passwords do not match",
+    "type": "text",
+    "placeholders": {}
+  },
+  "editProfile": "Edit Profile",
+  "@editProfile": {
+    "description": "Text for edit profile option",
+    "type": "text",
+    "placeholders": {}
+  },
+  "bio": "Bio",
+  "@bio": {
+    "description": "Label for bio field",
+    "type": "text",
+    "placeholders": {}
+  },
+  "username": "Username",
+  "@username": {
+    "description": "Label for username field",
+    "type": "text",
+    "placeholders": {}
+  },
+  "gender": "Gender",
+  "@gender": {
+    "description": "Label for gender field",
+    "type": "text",
+    "placeholders": {}
+  },
+  "male": "Male",
+  "@male": {
+    "description": "Option for male gender",
+    "type": "text",
+    "placeholders": {}
+  },
+  "female": "Female",
+  "@female": {
+    "description": "Option for female gender",
+    "type": "text",
+    "placeholders": {}
+  },
+  "other": "Other",
+  "@other": {
+    "description": "Option for other gender",
+    "type": "text",
+    "placeholders": {}
+  },
+  "none": "None",
+  "@none": {
+    "description": "Option for no gender",
+    "type": "text",
+    "placeholders": {}
+  },
+  "everyone": "Everyone",
+  "@everyone": {
+    "description": "Option for everyone in filters",
+    "type": "text",
+    "placeholders": {}
+  },
+  "close": "Close",
+  "@close": {
+    "description": "Text for close button",
+    "type": "text",
+    "placeholders": {}
+  },
+  "cancel": "Cancel",
+  "@cancel": {
+    "description": "Text for cancel button",
+    "type": "text",
+    "placeholders": {}
+  },
+  "saveChanges": "Save Changes",
+  "@saveChanges": {
+    "description": "Text for save changes button",
+    "type": "text",
+    "placeholders": {}
+  },
+  "submit": "Submit",
+  "@submit": {
+    "description": "Text for submit button",
+    "type": "text",
+    "placeholders": {}
+  },
+  "home": "Home",
+  "@home": {
+    "description": "Label for home tab",
+    "type": "text",
+    "placeholders": {}
+  },
+  "messages": "Messages",
+  "@messages": {
+    "description": "Label for messages tab",
+    "type": "text",
+    "placeholders": {}
+  },
+  "profile": "Profile",
+  "@profile": {
+    "description": "Label for profile tab",
+    "type": "text",
+    "placeholders": {}
+  },
+  "settings": "Settings",
+  "@settings": {
+    "description": "Text for settings",
+    "type": "text",
+    "placeholders": {}
+  },
+  "premium": "Premium",
+  "@premium": {
+    "description": "Text for premium membership",
+    "type": "text",
+    "placeholders": {}
+  },
+  "active": "Active",
+  "@active": {
+    "description": "Status indicator for active",
+    "type": "text",
+    "placeholders": {}
+  },
+  "closed": "Closed",
+  "@closed": {
+    "description": "Status indicator for closed",
+    "type": "text",
+    "placeholders": {}
+  },
+  "expired": "Expired",
+  "@expired": {
+    "description": "Status indicator for expired",
+    "type": "text",
+    "placeholders": {}
+  },
+  "archived": "Archived",
+  "@archived": {
+    "description": "Status indicator for archived",
+    "type": "text",
+    "placeholders": {}
+  },
+  "currentPosts": "Current Posts",
+  "@currentPosts": {
+    "description": "Tab title for current posts",
+    "type": "text",
+    "placeholders": {}
+  },
+  "archivedPosts": "Archived Posts",
+  "@archivedPosts": {
+    "description": "Tab title for archived posts",
+    "type": "text",
+    "placeholders": {}
+  },
+  "blockedUsers": "Blocked Users",
+  "@blockedUsers": {
+    "description": "Title for blocked users screen",
+    "type": "text",
+    "placeholders": {}
+  },
+  "noBlockedUsers": "No Blocked Users",
+  "@noBlockedUsers": {
+    "description": "Message when there are no blocked users",
+    "type": "text",
+    "placeholders": {}
+  },
+  "blockUser": "Block User",
+  "@blockUser": {
+    "description": "Action to block a user",
+    "type": "text",
+    "placeholders": {}
+  },
+  "unblock": "Unblock",
+  "@unblock": {
+    "description": "Action to unblock a user",
+    "type": "text",
+    "placeholders": {}
+  },
+  "reports": "Reports",
+  "@reports": {
+    "description": "Label for reports section",
+    "type": "text",
+    "placeholders": {}
+  },
+  "myReports": "My Reports",
+  "@myReports": {
+    "description": "Title for user reports screen",
+    "type": "text",
+    "placeholders": {}
+  },
+  "reportUser": "Report User",
+  "@reportUser": {
+    "description": "Action to report a user",
+    "type": "text",
+    "placeholders": {}
+  },
+  "reportReason": "Report Reason",
+  "@reportReason": {
+    "description": "Label for report reason field",
+    "type": "text",
+    "placeholders": {}
+  },
+  "location": "Location",
+  "@location": {
+    "description": "Label for location",
+    "type": "text",
+    "placeholders": {}
+  },
+  "distance": "Distance",
+  "@distance": {
+    "description": "Label for distance",
+    "type": "text",
+    "placeholders": {}
+  },
+  "filter": "Filter",
+  "@filter": {
+    "description": "Text for filter action",
+    "type": "text",
+    "placeholders": {}
+  },
+  "applyFilters": "Apply Filters",
+  "@applyFilters": {
+    "description": "Text for apply filters button",
+    "type": "text",
+    "placeholders": {}
+  },
+  "miles": "Miles",
+  "@miles": {
+    "description": "Unit for miles",
+    "type": "text",
+    "placeholders": {}
+  },
+  "enableLocation": "Enable Location",
+  "@enableLocation": {
+    "description": "Action to enable location",
+    "type": "text",
+    "placeholders": {}
+  },
+  "locationAccess": "Location Access",
+  "@locationAccess": {
+    "description": "Title for location access dialog",
+    "type": "text",
+    "placeholders": {}
+  },
+  "locationPermissionRequired": "Location permission is required to show nearby posts.",
+  "@locationPermissionRequired": {
+    "description": "Message about location permission requirement",
+    "type": "text",
+    "placeholders": {}
+  },
+  "allowLocation": "Allow",
+  "@allowLocation": {
+    "description": "Button to allow location access",
+    "type": "text",
+    "placeholders": {}
+  },
+  "notNow": "Not Now",
+  "@notNow": {
+    "description": "Button to skip location access for now",
+    "type": "text",
+    "placeholders": {}
+  },
+  "chat": "Chat",
+  "@chat": {
+    "description": "Label for chat feature",
+    "type": "text",
+    "placeholders": {}
+  },
+  "meet": "Meet",
+  "@meet": {
+    "description": "Action to meet with someone",
+    "type": "text",
+    "placeholders": {}
+  },
+  "decline": "Decline",
+  "@decline": {
+    "description": "Action to decline an invitation",
+    "type": "text",
+    "placeholders": {}
+  },
+  "endChat": "End Chat",
+  "@endChat": {
+    "description": "Action to end a chat",
+    "type": "text",
+    "placeholders": {}
+  },
+  "typeMessage": "Type a message...",
+  "@typeMessage": {
+    "description": "Placeholder for message input",
+    "type": "text",
+    "placeholders": {}
+  },
+  "chatEnded": "Chat Ended",
+  "@chatEnded": {
+    "description": "Status that chat has ended",
+    "type": "text",
+    "placeholders": {}
+  },
+  "returnToHome": "Return to Home",
+  "@returnToHome": {
+    "description": "Action to return to home screen",
+    "type": "text",
+    "placeholders": {}
+  },
+  "safetyGuidelines": "Safety Guidelines",
+  "@safetyGuidelines": {
+    "description": "Title for safety guidelines",
+    "type": "text",
+    "placeholders": {}
+  },
+  "selectLanguage": "Select Language",
+  "@selectLanguage": {
+    "description": "Title for language selection",
+    "type": "text",
+    "placeholders": {}
+  },
+  "english": "English",
+  "@english": {
+    "description": "Name of English language",
+    "type": "text",
+    "placeholders": {}
+  },
+  "japanese": "Japanese",
+  "@japanese": {
+    "description": "Name of Japanese language",
+    "type": "text",
+    "placeholders": {}
+  },
+  "korean": "Korean",
+  "@korean": {
+    "description": "Name of Korean language",
+    "type": "text",
+    "placeholders": {}
+  },
+  "spanish": "Spanish",
+  "@spanish": {
+    "description": "Name of Spanish language",
+    "type": "text",
+    "placeholders": {}
+  },
+  "french": "French",
+  "@french": {
+    "description": "Name of French language",
+    "type": "text",
+    "placeholders": {}
+  },
+  "german": "German",
+  "@german": {
+    "description": "Name of German language",
+    "type": "text",
+    "placeholders": {}
+  },
+  "vietnamese": "Vietnamese",
+  "@vietnamese": {
+    "description": "Name of Vietnamese language",
+    "type": "text",
+    "placeholders": {}
+  },
+  "languageSettings": "Language Settings",
+  "@languageSettings": {
+    "description": "Title for language settings",
+    "type": "text",
+    "placeholders": {}
+  },
+  "currentLanguage": "Current Language",
+  "@currentLanguage": {
+    "description": "Label for current language setting",
+    "type": "text",
+    "placeholders": {}
+  }
+}

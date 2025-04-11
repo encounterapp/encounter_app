@@ -190,6 +190,22 @@ class _SettingsMenuState extends State<SettingsMenu> {
               onTap: () {},
             ),
 
+            // Language Settings
+            ListTile(
+              leading: const Icon(Icons.language),
+              title: const Text("Language Settings"),
+              subtitle: Text(
+                "Change application language",
+                style: TextStyle(
+                  color: Colors.grey[600],
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context); // Close drawer first
+                Navigator.pushNamed(context, '/language_settings');
+              },
+            ),
+
             // Discord Button
             Padding(
               padding: const EdgeInsets.all(16.0),
