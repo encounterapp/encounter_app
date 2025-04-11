@@ -4,6 +4,7 @@ import 'package:encounter_app/components/square_tile.dart';
 import 'package:encounter_app/pages/auth_service.dart';
 import 'package:encounter_app/pages/create_profile.dart';
 import 'package:flutter/material.dart';
+import 'package:encounter_app/pages/verify_email_page.dart';
 
 
 class RegisterPage extends StatefulWidget {
@@ -23,54 +24,56 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _confirmPasswordController = TextEditingController();
 
 //Sign User Up Method
-  void signUserUp() async {
-    final email = _emailController.text;
-    final password = _passwordController.text;
-    final confirmPassword = _confirmPasswordController.text;
+void signUserUp() async {
+  final email = _emailController.text;
+  final password = _passwordController.text;
+  final confirmPassword = _confirmPasswordController.text;
+  
   // Check if email is valid
-    bool isValidEmail(String email) {
-    String emailPattern = r'^[a-zA-Z0-9._%+-]+@[a-zA0-9.-]+\.[a-zA-Z]{2,}$';
+  bool isValidEmail(String email) {
+    String emailPattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$';
     RegExp regExp = RegExp(emailPattern);
     return regExp.hasMatch(email);
   }
 
   if (!isValidEmail(email)) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Invalid email'),
-      ),
+      const SnackBar(content: Text('Invalid email')),
     );
     return;
   }
+  
   // Check if password and confirm password match
-    if (password != confirmPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Passwords do not match'),
-        ),
-      );
-      return;
-    }
-    //attempt to sign up user
-    try {
-      final response = await authService.signUpWithEmailPassword(
-        email: email, 
-        password: password);
-      if (response.user != null) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => CreateProfilePage()),
-        ); // Navigate to Create Profile page
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Sign Up failed'),
-        ),
-      );
-      print('Signup error: $e');
-    }
+  if (password != confirmPassword) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Passwords do not match')),
+    );
+    return;
   }
+  
+  //attempt to sign up user
+  try {
+    final response = await authService.signUpWithEmailPassword(
+      email: email, 
+      password: password
+    );
+    
+    // Navigate to verification page instead of directly to profile
+    if (response.user != null) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => VerifyEmailPage(email: email),
+        ),
+      );
+    }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Sign Up failed: ${e.toString()}')),
+    );
+    print('Signup error: $e');
+  }
+}
 
   @override
   Widget build(BuildContext context) {
