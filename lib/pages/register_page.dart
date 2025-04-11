@@ -75,8 +75,23 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[300],
-      body: SafeArea(
+            // Add the gradient background
+      backgroundColor: Colors.transparent, // Set to transparent to show the gradient
+      extendBodyBehindAppBar: true, // Extend the body behind the app bar
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color.fromRGBO(255,179,189,1),
+              Color.fromRGBO(254,248,154,1),
+              Color.fromRGBO(161,224,186,1),
+            ],
+            stops: [0.018, 0.506, 1.03], // 1.8% and 50.6% and 100.3%
+          ),
+        ),
+      child: SafeArea(
         child: Center(
         child: SingleChildScrollView(
         child: Column(
@@ -134,7 +149,7 @@ class _RegisterPageState extends State<RegisterPage> {
           MyButtons(onTap: signUserUp,),
           const SizedBox(height: 20),
 
-          // or Continue with
+          /*// or Continue with
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 25.0),
             child: Row(
@@ -176,7 +191,7 @@ class _RegisterPageState extends State<RegisterPage> {
               SquareTile(imagePath:'assets/icons/apple.png'),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 20),*/
           
           
           // Return to Sign In Account
@@ -201,6 +216,6 @@ class _RegisterPageState extends State<RegisterPage> {
     ),
     ),
     ),
-    );
+    ));
   }
 }
