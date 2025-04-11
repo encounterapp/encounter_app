@@ -5,7 +5,7 @@ import 'package:encounter_app/pages/home_page.dart';
 import 'package:encounter_app/pages/login_or_register.dart';
 import 'package:encounter_app/pages/reset_password.dart';
 import 'package:flutter/material.dart';
-import 'package:encounter_app/pages/auth_service.dart';
+import 'package:encounter_app/services/auth_service.dart';
 
 class SignInPage extends StatefulWidget {
   final Function()? onTap;
@@ -197,7 +197,7 @@ class _SignInPageState extends State<SignInPage> {
               : MyButtons(onTap: signUserIn),
           const SizedBox(height: 20),
 
-          /*// or Continue with
+          // or Continue with
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 25.0),
             child: Row(
@@ -239,7 +239,7 @@ class _SignInPageState extends State<SignInPage> {
               SquareTile(imagePath:'assets/icons/apple.png'),
             ],
           ),
-          const SizedBox(height: 20),*/
+          const SizedBox(height: 20),
           
           
           // Create Account

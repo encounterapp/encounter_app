@@ -1,7 +1,7 @@
 import 'package:encounter_app/components/my_buttons.dart';
 import 'package:encounter_app/components/my_textfields.dart';
 import 'package:encounter_app/components/square_tile.dart';
-import 'package:encounter_app/pages/auth_service.dart';
+import 'package:encounter_app/services/auth_service.dart';
 import 'package:encounter_app/pages/create_profile.dart';
 import 'package:flutter/material.dart';
 import 'package:encounter_app/pages/verify_email_page.dart';

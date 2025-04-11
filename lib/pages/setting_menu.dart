@@ -186,10 +186,6 @@ class _SettingsMenuState extends State<SettingsMenu> {
             
             const Divider(),
             ListTile(
-              title: const Text("Settings and privacy"),
-              onTap: () {},
-            ),
-            ListTile(
               title: const Text("Help Center"),
               onTap: () {},
             ),
