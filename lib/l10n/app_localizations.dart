@@ -524,22 +524,58 @@ class AppLocalizations {
         name: 'currentLanguage',
         desc: 'Label for current language setting',
       );
-}
+  
+  String get simplifiedChinese => Intl.message(
+  'Simplified Chinese',
+  name: 'simplifiedChinese',
+  desc: 'Name of Simplified Chinese language',
+);
+
+  String get traditionalChinese => Intl.message(
+    'Traditional Chinese',
+    name: 'traditionalChinese',
+    desc: 'Name of Traditional Chinese language',
+  );
+  }
 
 // Now we'll create a LocalizationsDelegate for our AppLocalizations
 
 class AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
   const AppLocalizationsDelegate();
 
-  @override
-  bool isSupported(Locale locale) {
-    return ['en', 'ja', 'ko', 'es', 'fr', 'de', 'vi'].contains(locale.languageCode);
+@override
+bool isSupported(Locale locale) {
+  // Check language code
+  if (!['en', 'ja', 'ko', 'es', 'fr', 'de', 'vi', 'zh'].contains(locale.languageCode)) {
+    return false;
   }
+  
+  // For Chinese, check country code
+  if (locale.languageCode == 'zh') {
+    return ['CN', 'TW'].contains(locale.countryCode);
+  }
+  
+  return true;
+}
 
-  @override
-  Future<AppLocalizations> load(Locale locale) {
-    return AppLocalizations.load(locale);
+@override
+Future<AppLocalizations> load(Locale locale) {
+  // For zh_TW, set locale name explicitly to handle Traditional Chinese
+  final String name;
+  if (locale.languageCode == 'zh' && locale.countryCode == 'TW') {
+    name = 'zh_TW';
+  } else {
+    name = locale.countryCode == null || locale.countryCode!.isEmpty
+        ? locale.languageCode
+        : locale.toString();
   }
+  
+  final String localeName = Intl.canonicalizedLocale(name);
+  return initializeMessages(localeName).then((_) {
+    Intl.defaultLocale = localeName;
+    return AppLocalizations();
+  });
+}
 
   @override
   bool shouldReload(AppLocalizationsDelegate old) => false;

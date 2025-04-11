@@ -84,5 +84,7 @@
   "arabic": "アラビア語",
   "vietnamese": "ベトナム語",
   "languageSettings": "言語設定",
-  "currentLanguage": "現在の言語"
+  "currentLanguage": "現在の言語",
+  "simplifiedChinese": "簡体字中国語",
+  "traditionalChinese": "繁体字中国語"
 }

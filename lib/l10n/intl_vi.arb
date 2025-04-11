@@ -84,5 +84,7 @@
   "arabic": "Tiếng Ả Rập",
   "vietnamese": "Tiếng Việt",
   "languageSettings": "Cài đặt ngôn ngữ",
-  "currentLanguage": "Ngôn ngữ hiện tại"
+  "currentLanguage": "Ngôn ngữ hiện tại",
+  "simplifiedChinese": "Tiếng Trung Giản thể",
+  "traditionalChinese": "Tiếng Trung Phồn thể"
 }

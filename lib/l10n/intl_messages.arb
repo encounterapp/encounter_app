@@ -498,6 +498,18 @@
     "type": "text",
     "placeholders": {}
   },
+  "simplifiedChinese": "Simplified Chinese",
+  "@simplifiedChinese": {
+    "description": "Name of Simplified Chinese language",
+    "type": "text",
+    "placeholders": {}
+  },
+  "traditionalChinese": "Traditional Chinese"
+  "@traditionalChinese": {
+    "description": "Name of Traditional Chinese language",
+    "type": "text",
+    "placeholders": {}
+  },
   "currentLanguage": "Current Language",
   "@currentLanguage": {
     "description": "Label for current language setting",

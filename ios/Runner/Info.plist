@@ -67,7 +67,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<!-- Replace with your actual reversed client ID from Google -->
-				<string>c600977373134-kvvc0mc410mhmcr8ucajuubmkib0535l.apps.googleusercontent.com</string>
+				<string>600977373134-biq6j5eh2sggf5smfb51v8t7r3uvkaem.apps.googleusercontent.com</string>
 			</array>
 		</dict>
 		<dict>
@@ -76,7 +76,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<!-- Your app's bundle ID for Apple Sign-In -->
-				<string>com.example.encounter_app</string>
+				<string>com.trangtruong.encounterapp</string>
 			</array>
 		</dict>
 	</array>

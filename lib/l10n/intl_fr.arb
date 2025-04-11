@@ -84,5 +84,7 @@
   "arabic": "Arabe",
   "vietnamese": "Vietnamien",
   "languageSettings": "Paramètres de langue",
-  "currentLanguage": "Langue actuelle"
+  "currentLanguage": "Langue actuelle",
+  "simplifiedChinese": "Chinois Simplifié",
+  "traditionalChinese": "Chinois Traditionnel"
 }

@@ -20,6 +20,8 @@ class LanguageService {
     {'name': 'Français', 'locale': Locale('fr', 'FR')},
     {'name': 'Deutsch', 'locale': Locale('de', 'DE')},
     {'name': 'Tiếng Việt', 'locale': Locale('vi', 'VN')},
+    {'name': '简体中文', 'locale': Locale('zh', 'CN')}, 
+    {'name': '繁體中文', 'locale': Locale('zh', 'TW')}, 
   ];
 
   // Default locale
