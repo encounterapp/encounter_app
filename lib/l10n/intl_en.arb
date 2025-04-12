@@ -86,5 +86,7 @@
   "languageSettings": "Language Settings",
   "currentLanguage": "Current Language",
   "simplifiedChinese": "Simplified Chinese",
-  "traditionalChinese": "Traditional Chinese"
+  "traditionalChinese": "Traditional Chinese",
+  "noArchivedConversations": "No archived conversations",
+  "noActiveConversations": "No active conversations"
 }

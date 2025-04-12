@@ -1,3 +1,4 @@
+import 'package:encounter_app/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:encounter_app/pages/setting_menu.dart';
@@ -177,6 +178,7 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     return Scaffold(
       key: _scaffoldKey,
       appBar: AppBar(
@@ -186,7 +188,7 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
             _scaffoldKey.currentState?.openDrawer();
           },
         ),
-        title: const Text("Messages", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(localizations.messages, style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         backgroundColor: Colors.white,
         elevation: 0.5,
@@ -195,9 +197,9 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
           controller: _tabController,
           labelColor: Colors.blue,
           unselectedLabelColor: Colors.grey,
-          tabs: const [
-            Tab(text: "Active"),
-            Tab(text: "Archived"),
+          tabs: [
+            Tab(text: localizations.active),
+            Tab(text: localizations.archived),
           ],
         ),
       ),
@@ -205,18 +207,18 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : currentUserId == null
-              ? _buildLoginPrompt()
+              ? _buildLoginPrompt(localizations)
               : TabBarView(
                   controller: _tabController,
                   children: [
-                    _buildConversationsList(_activeConversations, isArchived: false),
-                    _buildConversationsList(_archivedConversations, isArchived: true),
+                    _buildConversationsList(_activeConversations, isArchived: false, localizations: localizations),
+                    _buildConversationsList(_archivedConversations, isArchived: true, localizations: localizations),
                   ],
                 ),
     );
   }
 
-  Widget _buildLoginPrompt() {
+  Widget _buildLoginPrompt(AppLocalizations localizations) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -230,14 +232,14 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
             onPressed: () {
               // Navigate to login page
             },
-            child: const Text("Log In"),
+            child: Text(localizations.signIn),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildConversationsList(List<Map<String, dynamic>> conversations, {required bool isArchived}) {
+  Widget _buildConversationsList(List<Map<String, dynamic>> conversations, {required bool isArchived, required AppLocalizations localizations}) {
     if (conversations.isEmpty) {
       return Center(
         child: Column(
@@ -250,7 +252,7 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
             ),
             const SizedBox(height: 16),
             Text(
-              isArchived ? "No archived conversations" : "No active conversations",
+              isArchived ? localizations.noArchivedConversations : localizations.noActiveConversations,
               style: TextStyle(fontSize: 16),
             ),
           ],
@@ -289,8 +291,8 @@ class _MessagesPageState extends State<MessagesPage> with SingleTickerProviderSt
                       color: Colors.grey[200],
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Text(
-                      'Archived',
+                    child: Text(
+                      localizations.archived,
                       style: TextStyle(fontSize: 10, color: Colors.grey),
                     ),
                   ),

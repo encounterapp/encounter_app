@@ -86,5 +86,7 @@
   "languageSettings": "Cài đặt ngôn ngữ",
   "currentLanguage": "Ngôn ngữ hiện tại",
   "simplifiedChinese": "Tiếng Trung Giản thể",
-  "traditionalChinese": "Tiếng Trung Phồn thể"
+  "traditionalChinese": "Tiếng Trung Phồn thể",
+  "noArchivedConversations": "Không có cuộc trò chuyện nào được lưu trữ",
+  "noActiveConversations": "Không có cuộc trò chuyện nào đang hoạt động"
 }

@@ -86,5 +86,7 @@
   "languageSettings": "언어 설정",
   "currentLanguage": "현재 언어",
   "simplifiedChinese": "간체 중국어",
-  "traditionalChinese": "번체 중국어"
+  "traditionalChinese": "번체 중국어",
+  "noArchivedConversations": "보관된 대화 없음",
+  "noActiveConversations": "활성 대화 없음"
 }

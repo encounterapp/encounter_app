@@ -87,5 +87,7 @@
   "languageSettings": "语言设置",
   "currentLanguage": "当前语言",
   "simplifiedChinese": "简体中文",
-"traditionalChinese": "繁体中文"
+  "traditionalChinese": "繁体中文",
+  "noArchivedConversations": "没有已存档的对话",
+  "noActiveConversations": "没有活跃的对话"
 }

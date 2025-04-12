@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:encounter_app/l10n/app_localizations.dart';
 import 'home_page.dart';
 
 class CreateProfilePage extends StatefulWidget {

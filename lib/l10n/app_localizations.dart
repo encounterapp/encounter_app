@@ -536,6 +536,16 @@ class AppLocalizations {
     name: 'traditionalChinese',
     desc: 'Name of Traditional Chinese language',
   );
+  String get noArchivedConversations => Intl.message(
+    'No archived conversations.',
+    name: 'No archived conversations.',
+    desc: 'No archived conversations.',
+  );
+  String get noActiveConversations => Intl.message(
+    'No active conversations',
+    name: 'No active conversations',
+    desc: 'No active conversations',
+  );
   }
 
 // Now we'll create a LocalizationsDelegate for our AppLocalizations

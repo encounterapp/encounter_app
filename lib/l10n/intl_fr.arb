@@ -87,4 +87,6 @@
   "currentLanguage": "Langue actuelle",
   "simplifiedChinese": "Chinois Simplifié",
   "traditionalChinese": "Chinois Traditionnel"
+  "noArchivedConversations": "Pas de conversations archivées",
+  "noActiveConversations": "Pas de conversations actives"
 }

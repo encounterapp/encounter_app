@@ -515,5 +515,17 @@
     "description": "Name of Traditional Chinese language",
     "type": "text",
     "placeholders": {}
+  },
+  "noArchivedConversations": "No archived conversations.",
+  "@noArchivedConversations": {
+    "description": "No archived conversations.",
+    "type": "text",
+    "placeholders": {}
+  },
+  "noActiveConversations": "No active conversations.",
+  "@noActiveConversations": {
+    "description": "No active conversations.",
+    "type": "text",
+    "placeholders": {}
   }
 }

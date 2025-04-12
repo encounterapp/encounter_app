@@ -86,5 +86,7 @@
   "simplifiedChinese": "簡體中文",
   "traditionalChinese": "繁體中文",
   "languageSettings": "語言設定",
-  "currentLanguage": "當前語言"
+  "currentLanguage": "當前語言",
+  "noArchivedConversations": "沒有已封存的對話",
+  "noActiveConversations": "沒有活躍的對話"
 }

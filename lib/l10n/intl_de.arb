@@ -86,5 +86,7 @@
   "languageSettings": "Spracheinstellungen",
   "currentLanguage": "Aktuelle Sprache",
   "simplifiedChinese": "Vereinfachtes Chinesisch",
-  "traditionalChinese": "Traditionelles Chinesisch"
+  "traditionalChinese": "Traditionelles Chinesisch",
+  "noArchivedConversations": "Keine archivierten Konversationen",
+  "noActiveConversations": "Keine aktiven Konversationen"
 }
